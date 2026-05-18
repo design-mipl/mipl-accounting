@@ -1,0 +1,54 @@
+# dependencies
+node_modules/
+
+# production
+dist/
+build/
+out/
+
+# environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# cache
+.cache/
+.parcel-cache/
+.next/
+.nuxt/
+.vite/
+.turbo/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# coverage
+coverage/
+
+# lock files (optional - keep if team uses package manager consistency)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# TypeScript
+*.tsbuildinfo
+
+# generated files
+*.local

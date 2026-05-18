@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\krish\\\\Desktop\\\\Accounting Software\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(Format-Table -AutoSize)",
+      "Bash(ls -la \"/c/Users/krish/Desktop\" | grep -i account)",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(xargs grep -l \"type Customer\")",
+      "Bash(npx tsc *)",
+      "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")",
+      "Bash(curl -s http://localhost:5173)"
+    ]
+  }
+}
