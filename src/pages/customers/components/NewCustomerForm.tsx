@@ -25,22 +25,25 @@ type FormData = {
   logoFile?: File
   logoPreview?: string
   companyName: string
-  ownerName: string
-  phones: string[]
-  emails: string[]
+  contactPerson: string
+  phone: string
+  email: string
+  ccEmails: string[]
   website: string
-  gstApplicable: boolean
-  gstNumber: string
-  panNumber: string
+  gstinApplicable: boolean
+  gstin: string
+  gstinName: string
+  pan: string
+  panName: string
   tdsApplicable: boolean
-  tdsNumber: string
+  tdsPercentage: string
   address1: string
   address2: string
   city: string
   state: string
   country: string
   pincode: string
-  status: 'Active' | 'Inactive'
+  status: 'active' | 'inactive'
   documents: Document[]
 }
 
@@ -82,22 +85,25 @@ const NewCustomerForm = forwardRef<NewCustomerFormRef, { onSave?: (customer: Cus
   const [tab, setTab] = useState<Tab>('basic')
   const [form, setForm] = useState<FormData>({
     companyName: '',
-    ownerName: '',
-    phones: [],
-    emails: [],
+    contactPerson: '',
+    phone: '',
+    email: '',
+    ccEmails: [],
     website: '',
-    gstApplicable: false,
-    gstNumber: '',
-    panNumber: '',
+    gstinApplicable: false,
+    gstin: '',
+    gstinName: '',
+    pan: '',
+    panName: '',
     tdsApplicable: false,
-    tdsNumber: '',
+    tdsPercentage: '',
     address1: '',
     address2: '',
     city: '',
     state: '',
     country: 'India',
     pincode: '',
-    status: 'Active',
+    status: 'active',
     documents: [],
   })
   const [docTypeDropdown, setDocTypeDropdown] = useState(false)
@@ -108,22 +114,25 @@ const NewCustomerForm = forwardRef<NewCustomerFormRef, { onSave?: (customer: Cus
     if (initialCustomer) {
       setForm({
         companyName: initialCustomer.companyName,
-        ownerName: initialCustomer.ownerName,
-        phones: initialCustomer.phones || [],
-        emails: initialCustomer.emails || [],
+        contactPerson: initialCustomer.ownerName || '',
+        phone: initialCustomer.phones?.[0] || '',
+        email: initialCustomer.emails?.[0] || '',
+        ccEmails: initialCustomer.emails?.slice(1) || [],
         website: initialCustomer.website || '',
-        gstApplicable: initialCustomer.gstApplicable,
-        gstNumber: initialCustomer.gstNumber,
-        panNumber: initialCustomer.panNumber || '',
+        gstinApplicable: initialCustomer.gstApplicable,
+        gstin: initialCustomer.gstNumber,
+        gstinName: '',
+        pan: initialCustomer.panNumber || '',
+        panName: '',
         tdsApplicable: initialCustomer.tdsApplicable,
-        tdsNumber: initialCustomer.tdsNumber || '',
+        tdsPercentage: initialCustomer.tdsNumber || '',
         address1: initialCustomer.addressLine1 || '',
         address2: initialCustomer.addressLine2 || '',
         city: initialCustomer.city || '',
         state: initialCustomer.state || '',
         country: initialCustomer.country || 'India',
         pincode: initialCustomer.pincode || '',
-        status: initialCustomer.status,
+        status: (initialCustomer.status?.toLowerCase() as 'active' | 'inactive') || 'active',
         documents: [],
       })
     }
@@ -193,22 +202,22 @@ const NewCustomerForm = forwardRef<NewCustomerFormRef, { onSave?: (customer: Cus
       const customer: Customer = {
         id: initialCustomer?.id || Math.random().toString(36).slice(2),
         companyName: form.companyName,
-        ownerName: form.ownerName,
-        phones: form.phones.filter(p => p.trim()),
-        emails: form.emails.filter(e => e.trim()),
+        ownerName: form.contactPerson,
+        phones: form.phone.trim() ? [form.phone] : [],
+        emails: [form.email, ...form.ccEmails].filter(e => e.trim()),
         website: form.website,
-        gstNumber: form.gstNumber,
-        gstApplicable: form.gstApplicable,
-        tdsNumber: form.tdsNumber,
+        gstNumber: form.gstin,
+        gstApplicable: form.gstinApplicable,
+        tdsNumber: form.tdsPercentage,
         tdsApplicable: form.tdsApplicable,
-        panNumber: form.panNumber,
+        panNumber: form.pan,
         addressLine1: form.address1,
         addressLine2: form.address2,
         city: form.city,
         state: form.state,
         pincode: form.pincode,
         country: form.country,
-        status: form.status,
+        status: form.status === 'active' ? 'Active' : 'Inactive',
         contactPersons: initialCustomer?.contactPersons || [],
         notes: initialCustomer?.notes || '',
         createdAt: initialCustomer?.createdAt || new Date().toISOString(),
@@ -218,22 +227,25 @@ const NewCustomerForm = forwardRef<NewCustomerFormRef, { onSave?: (customer: Cus
       onSave(customer)
       setForm({
         companyName: '',
-        ownerName: '',
-        phones: [],
-        emails: [],
+        contactPerson: '',
+        phone: '',
+        email: '',
+        ccEmails: [],
         website: '',
-        gstApplicable: false,
-        gstNumber: '',
-        panNumber: '',
+        gstinApplicable: false,
+        gstin: '',
+        gstinName: '',
+        pan: '',
+        panName: '',
         tdsApplicable: false,
-        tdsNumber: '',
+        tdsPercentage: '',
         address1: '',
         address2: '',
         city: '',
         state: '',
         country: 'India',
         pincode: '',
-        status: 'Active',
+        status: 'active',
         documents: [],
       })
       setTab('basic')

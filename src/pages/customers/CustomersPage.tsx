@@ -177,10 +177,10 @@ export default function CustomersPage() {
         {/* Table content */}
         <div className="px-4 py-2 min-h-[300px]">
           {tab === 'all' && (
-            <CustomerTable customers={filteredActive} tab="all" onDelete={handleDelete} onRestore={handleRestore} onStatusChange={handleStatusChange} onEdit={handleEdit} onView={handleView} />
+            <CustomerTable customers={filteredActive} tab="all" onDelete={handleDelete} onRestore={handleRestore} onStatusChange={handleStatusChange} onEdit={handleEdit} />
           )}
           {tab === 'inactive' && (
-            <CustomerTable customers={filteredDeleted} tab="inactive" onDelete={handleDelete} onRestore={handleRestore} onEdit={handleEdit} onView={handleView} />
+            <CustomerTable customers={filteredDeleted} tab="inactive" onDelete={handleDelete} onRestore={handleRestore} onEdit={handleEdit} />
           )}
         </div>
 

@@ -7,7 +7,6 @@ import clsx from 'clsx'
 import type { Vendor } from '../../types/vendor'
 import { DUMMY_VENDORS, DUMMY_VENDOR_GROUPS } from '../../data/vendors'
 import VendorTable from './components/VendorTable'
-import GroupsTab from './components/GroupsTab'
 import NewVendorDrawer from './components/NewVendorDrawer'
 import VendorDetailModal from './components/VendorDetailModal'
 
