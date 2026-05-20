@@ -47,11 +47,13 @@ export default function BillingTrackerPage() {
   const rows: Row[] = useMemo(() => {
     const out: Row[] = []
 
-    // Project milestones
+    // Project milestones & direct billing
     for (const proj of projects) {
       const customer = customers.find(c => c.id === proj.customerId)
       const customerName = customer ? customer.companyName : proj.customerName
       const ms = milestones.filter(m => m.projectId === proj.id)
+
+      // 1. Render all milestones
       for (const m of ms) {
         const pi = pis.find(p => p.milestoneId === m.id)
         const received = pi?.amountReceived ?? 0
@@ -70,6 +72,77 @@ export default function BillingTrackerPage() {
           tiNumber: ti?.tiNumber ?? '—',
           tiStatus: ti ? ti.status : 'Not Created',
           paymentStatus: c.expectedReceipt === 0 ? 'Pending' : calcPaymentStatus(c.amountReceived, c.expectedReceipt),
+        })
+      }
+
+      // 2. Render project-level (direct) invoices (those not linked to any milestone)
+      const projPis = pis.filter(p => p.projectId === proj.id && !p.milestoneId)
+      const projTis = tis.filter(t => t.projectId === proj.id && !t.milestoneId)
+
+      if (projPis.length > 0 || projTis.length > 0) {
+        const processedTiIds = new Set<string>()
+        for (const pi of projPis) {
+          const ti = projTis.find(t => t.linkedPiId === pi.id)
+          if (ti) processedTiIds.add(ti.id)
+          
+          const received = Math.max(pi.amountReceived || 0, ti?.amountReceived || 0)
+          const expected = pi.grossAmount - pi.tdsAmount
+          const outstanding = expected - received
+
+          out.push({
+            key: `pi-${pi.id}`,
+            customer: customerName,
+            parent: proj.name,
+            unit: pi.notes || `Direct Billing – ${pi.piNumber}`,
+            billingType: proj.billingType,
+            base: pi.baseAmount, gst: pi.gstAmount, gross: pi.grossAmount, tds: pi.tdsAmount,
+            expected, received, outstanding,
+            piNumber: pi.piNumber,
+            piStatus: pi.status,
+            tiNumber: ti?.tiNumber ?? '—',
+            tiStatus: ti ? ti.status : 'Not Created',
+            paymentStatus: expected === 0 ? 'Pending' : calcPaymentStatus(received, expected),
+          })
+        }
+
+        for (const ti of projTis) {
+          if (processedTiIds.has(ti.id)) continue
+          
+          const received = ti.amountReceived || 0
+          const expected = ti.grossAmount - ti.tdsAmount
+          const outstanding = expected - received
+
+          out.push({
+            key: `ti-${ti.id}`,
+            customer: customerName,
+            parent: proj.name,
+            unit: ti.notes || `Direct Tax Invoice – ${ti.tiNumber}`,
+            billingType: proj.billingType,
+            base: ti.baseAmount, gst: ti.gstAmount, gross: ti.grossAmount, tds: ti.tdsAmount,
+            expected, received, outstanding,
+            piNumber: '—',
+            piStatus: 'Not Raised',
+            tiNumber: ti.tiNumber,
+            tiStatus: ti.status,
+            paymentStatus: expected === 0 ? 'Pending' : calcPaymentStatus(received, expected),
+          })
+        }
+      } else if (ms.length === 0) {
+        // If there are NO milestones AND no direct invoices raised yet, show a project placeholder row
+        const c = calcMilestone(proj.totalValue, 100, proj.gstPercent, proj.tdsPercent, 0)
+        out.push({
+          key: `proj-${proj.id}`,
+          customer: customerName,
+          parent: proj.name,
+          unit: 'Project Payment',
+          billingType: proj.billingType,
+          base: c.baseAmount, gst: c.gstAmount, gross: c.grossAmount, tds: c.tdsAmount,
+          expected: c.expectedReceipt, received: 0, outstanding: c.expectedReceipt,
+          piNumber: '—',
+          piStatus: 'Not Raised',
+          tiNumber: '—',
+          tiStatus: 'Not Created',
+          paymentStatus: 'Pending',
         })
       }
     }
@@ -120,9 +193,9 @@ export default function BillingTrackerPage() {
   }, [rows, search, fCustomer, fBilling, fPayment, SALES_CUSTOMERS])
 
   const summary = useMemo(() => {
-    const totalBilling = filtered.reduce((s, r) => s + r.gross, 0)
-    const totalReceived = filtered.reduce((s, r) => s + r.received, 0)
-    const totalOutstanding = filtered.reduce((s, r) => s + Math.max(0, r.outstanding), 0)
+    const totalBilling = filtered.reduce((s, r) => s + (Number(r.gross) || 0), 0)
+    const totalReceived = filtered.reduce((s, r) => s + (Number(r.received) || 0), 0)
+    const totalOutstanding = filtered.reduce((s, r) => s + Math.max(0, Number(r.outstanding) || 0), 0)
     const shortfallCount = filtered.filter(r => r.paymentStatus === 'Shortfall').length
     return {
       totalBilling,

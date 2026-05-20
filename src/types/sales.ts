@@ -232,8 +232,10 @@ export function calcMilestone(
 }
 
 export function calcPaymentStatus(amountReceived: number, expectedReceipt: number): PaymentStatusSales {
-  if (amountReceived === 0) return 'Pending'
-  if (amountReceived < expectedReceipt) return 'Shortfall'
-  if (amountReceived > expectedReceipt) return 'Excess Received'
+  const received = Math.round(amountReceived * 100) / 100
+  const expected = Math.round(expectedReceipt * 100) / 100
+  if (received === 0) return 'Pending'
+  if (received < expected) return 'Shortfall'
+  if (received > expected) return 'Excess Received'
   return 'Matched'
 }

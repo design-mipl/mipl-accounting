@@ -142,14 +142,45 @@ function mapProjectToDBInput(p: Project, projectMilestones: Milestone[]): any {
   }
   const status = statusMap[p.projectStatus] || 'LEAD'
 
+  const startD = p.startDate ? new Date(p.startDate) : new Date()
+  let endD = startD
+
+  if (billingType === 'AMC' && p.endDate) {
+    const d = new Date(p.endDate)
+    if (!isNaN(d.getTime())) endD = d
+  } else if (billingType === 'MONTHLY_RETAINER') {
+    const d = new Date(startD)
+    d.setMonth(d.getMonth() + 12)
+    if (!isNaN(d.getTime())) endD = d
+  } else if (billingType === 'MILESTONE_BASED' && projectMilestones && projectMilestones.length > 0) {
+    let maxMsDate: Date | null = null
+    for (const ms of projectMilestones) {
+      if (ms.expectedDate) {
+        const d = new Date(ms.expectedDate)
+        if (!isNaN(d.getTime())) {
+          if (!maxMsDate || d > maxMsDate) {
+            maxMsDate = d
+          }
+        }
+      }
+    }
+    if (maxMsDate && maxMsDate >= startD) {
+      endD = maxMsDate
+    } else {
+      endD = startD
+    }
+  } else {
+    endD = startD
+  }
+
   const dbInput: any = {
     customerId: p.customerId,
     projectName: p.name,
     projectType,
     billingType,
     totalValue: p.totalValue,
-    startDate: p.startDate ? new Date(p.startDate).toISOString() : new Date().toISOString(),
-    endDate: p.endDate ? new Date(p.endDate).toISOString() : new Date().toISOString(),
+    startDate: startD.toISOString(),
+    endDate: endD.toISOString(),
     gstPercentage: p.gstPercent || 0,
     tdsPercentage: p.tdsPercent || 0,
     status,
@@ -426,14 +457,14 @@ export function SalesProvider({ children }: { children: ReactNode }) {
         projectName: dbPi.projectedSale?.projectName,
         milestoneId: dbPi.milestoneId,
         milestoneLabel: dbPi.milestone ? dbPi.milestone.milestoneName : undefined,
-        baseAmount: dbPi.baseAmount,
-        gstPercent: dbPi.gstPercentage,
-        gstAmount: dbPi.gstAmount,
-        tdsPercent: dbPi.tdsPercentage,
-        tdsAmount: dbPi.tdsAmount,
-        grossAmount: dbPi.grossAmount,
-        amountReceived: dbPi.amountReceived,
-        outstandingBeyondTds: dbPi.outstandingAmount,
+        baseAmount: Number(dbPi.baseAmount),
+        gstPercent: Number(dbPi.gstPercentage),
+        gstAmount: Number(dbPi.gstAmount),
+        tdsPercent: Number(dbPi.tdsPercentage),
+        tdsAmount: Number(dbPi.tdsAmount),
+        grossAmount: Number(dbPi.grossAmount),
+        amountReceived: Number(dbPi.amountReceived),
+        outstandingBeyondTds: Number(dbPi.outstandingAmount),
         status: dbPi.status,
         piSent: dbPi.status === 'SENT',
         fileName: dbPi.piFile || undefined,
@@ -453,14 +484,14 @@ export function SalesProvider({ children }: { children: ReactNode }) {
         projectName: dbTi.projectedSale?.projectName,
         milestoneId: dbTi.milestoneId,
         milestoneLabel: dbTi.milestone ? dbTi.milestone.milestoneName : undefined,
-        baseAmount: dbTi.baseAmount,
-        gstPercent: dbTi.gstPercentage,
-        gstAmount: dbTi.gstAmount,
-        tdsPercent: dbTi.tdsPercentage,
-        tdsAmount: dbTi.tdsAmount,
-        grossAmount: dbTi.grossAmount,
-        amountReceived: dbTi.amountReceived,
-        outstandingBeyondTds: dbTi.outstandingAmount,
+        baseAmount: Number(dbTi.baseAmount),
+        gstPercent: Number(dbTi.gstPercentage),
+        gstAmount: Number(dbTi.gstAmount),
+        tdsPercent: Number(dbTi.tdsPercentage),
+        tdsAmount: Number(dbTi.tdsAmount),
+        grossAmount: Number(dbTi.grossAmount),
+        amountReceived: Number(dbTi.amountReceived),
+        outstandingBeyondTds: Number(dbTi.outstandingAmount),
         status: dbTi.status,
         invoiceSent: dbTi.status === 'SENT',
         fileName: dbTi.tiFile || undefined,
@@ -576,14 +607,14 @@ export function SalesProvider({ children }: { children: ReactNode }) {
       projectName: dbPi.projectedSale?.projectName,
       milestoneId: dbPi.milestoneId,
       milestoneLabel: dbPi.milestone ? dbPi.milestone.milestoneName : undefined,
-      baseAmount: dbPi.baseAmount,
-      gstPercent: dbPi.gstPercentage,
-      gstAmount: dbPi.gstAmount,
-      tdsPercent: dbPi.tdsPercentage,
-      tdsAmount: dbPi.tdsAmount,
-      grossAmount: dbPi.grossAmount,
-      amountReceived: dbPi.amountReceived,
-      outstandingBeyondTds: dbPi.outstandingAmount,
+      baseAmount: Number(dbPi.baseAmount),
+      gstPercent: Number(dbPi.gstPercentage),
+      gstAmount: Number(dbPi.gstAmount),
+      tdsPercent: Number(dbPi.tdsPercentage),
+      tdsAmount: Number(dbPi.tdsAmount),
+      grossAmount: Number(dbPi.grossAmount),
+      amountReceived: Number(dbPi.amountReceived),
+      outstandingBeyondTds: Number(dbPi.outstandingAmount),
       status: dbPi.status,
       piSent: dbPi.status === 'SENT',
       fileName: dbPi.piFile || undefined,
@@ -618,14 +649,14 @@ export function SalesProvider({ children }: { children: ReactNode }) {
       projectName: dbTi.projectedSale?.projectName,
       milestoneId: dbTi.milestoneId,
       milestoneLabel: dbTi.milestone ? dbTi.milestone.milestoneName : undefined,
-      baseAmount: dbTi.baseAmount,
-      gstPercent: dbTi.gstPercentage,
-      gstAmount: dbTi.gstAmount,
-      tdsPercent: dbTi.tdsPercentage,
-      tdsAmount: dbTi.tdsAmount,
-      grossAmount: dbTi.grossAmount,
-      amountReceived: dbTi.amountReceived,
-      outstandingBeyondTds: dbTi.outstandingAmount,
+      baseAmount: Number(dbTi.baseAmount),
+      gstPercent: Number(dbTi.gstPercentage),
+      gstAmount: Number(dbTi.gstAmount),
+      tdsPercent: Number(dbTi.tdsPercentage),
+      tdsAmount: Number(dbTi.tdsAmount),
+      grossAmount: Number(dbTi.grossAmount),
+      amountReceived: Number(dbTi.amountReceived),
+      outstandingBeyondTds: Number(dbTi.outstandingAmount),
       status: dbTi.status,
       invoiceSent: dbTi.status === 'SENT',
       fileName: dbTi.tiFile || undefined,

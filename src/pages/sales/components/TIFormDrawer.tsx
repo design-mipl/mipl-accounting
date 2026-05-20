@@ -124,6 +124,11 @@ export function TIFormDrawer({ open, onClose, initial, fromPI }: {
     return pis.find(p => p.id === form.linkedPiId)
   }, [pis, form.linkedPiId])
 
+  const clientProjects = useMemo(() => {
+    if (!form.clientId) return projects
+    return projects.filter(p => p.customerId === form.clientId)
+  }, [projects, form.clientId])
+
   const base = parseFloat(form.baseAmount) || 0
   const gstP = parseFloat(form.gstPercent) || 0
   const tdsP = parseFloat(form.tdsPercent) || 0
@@ -251,7 +256,7 @@ export function TIFormDrawer({ open, onClose, initial, fromPI }: {
 
           <div>
             <label className={labelCls}>Client *</label>
-            <select value={form.clientId} onChange={e => set('clientId', e.target.value)} className={inputCls} disabled={isLinked}>
+            <select value={form.clientId} onChange={e => setForm(prev => ({ ...prev, clientId: e.target.value, projectId: '', milestoneId: '' }))} className={inputCls} disabled={isLinked}>
               <option value="">Select client</option>
               {SALES_CUSTOMERS.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
@@ -260,9 +265,9 @@ export function TIFormDrawer({ open, onClose, initial, fromPI }: {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Project</label>
-              <select value={form.projectId} onChange={e => set('projectId', e.target.value)} className={inputCls} disabled={isLinked}>
+              <select value={form.projectId} onChange={e => setForm(prev => ({ ...prev, projectId: e.target.value, milestoneId: '' }))} className={inputCls} disabled={isLinked}>
                 <option value="">No project</option>
-                {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                {clientProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </div>
             <div>

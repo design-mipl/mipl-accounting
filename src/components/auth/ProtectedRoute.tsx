@@ -1,8 +1,14 @@
 import { Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
+import { usePermission } from './PermissionGuard'
 
-export default function ProtectedRoute() {
+interface ProtectedRouteProps {
+  requiredPermission?: string
+}
+
+export default function ProtectedRoute({ requiredPermission }: ProtectedRouteProps) {
   const { token, loading } = useAuth()
+  const hasPermission = usePermission(requiredPermission)
 
   if (loading) {
     return (
@@ -14,6 +20,10 @@ export default function ProtectedRoute() {
 
   if (!token) {
     return <Navigate to="/login" replace />
+  }
+
+  if (requiredPermission && !hasPermission) {
+    return <Navigate to="/dashboard" replace />
   }
 
   return <Outlet />

@@ -1,9 +1,14 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
+import type { RolePermission } from '../types/user'
 
-type User = {
+export type User = {
   id: string
   email: string
   role: string
+  permissions?: RolePermission[]
+  firstName?: string
+  lastName?: string
+  status?: string
 }
 
 type AuthState = {

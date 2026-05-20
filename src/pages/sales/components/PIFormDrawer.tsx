@@ -117,6 +117,11 @@ export function PIFormDrawer({ open, onClose, initial, prefill }: {
     }))
   }
 
+  const clientProjects = useMemo(() => {
+    if (!form.clientId) return projects
+    return projects.filter(p => p.customerId === form.clientId)
+  }, [projects, form.clientId])
+
   const selectedProject = useMemo(() => {
     return projects.find(p => p.id === form.projectId)
   }, [projects, form.projectId])
@@ -242,7 +247,7 @@ export function PIFormDrawer({ open, onClose, initial, prefill }: {
 
           <div>
             <label className={labelCls}>Client *</label>
-            <select value={form.clientId} onChange={e => set('clientId', e.target.value)} className={inputCls} disabled={!!form.projectId}>
+            <select value={form.clientId} onChange={e => setForm(prev => ({ ...prev, clientId: e.target.value, projectId: '', milestoneId: '' }))} className={inputCls} disabled={!!form.projectId}>
               <option value="">Select client</option>
               {SALES_CUSTOMERS.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
@@ -253,7 +258,7 @@ export function PIFormDrawer({ open, onClose, initial, prefill }: {
               <label className={labelCls}>Project</label>
               <select value={form.projectId} onChange={e => pickProject(e.target.value)} className={inputCls}>
                 <option value="">No project (direct)</option>
-                {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                {clientProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </div>
             <div>

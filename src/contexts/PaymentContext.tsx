@@ -30,6 +30,7 @@ type PaymentState = {
   payments: Payment[]
   loading: boolean
   addPayment: (payment: Omit<Payment, 'id' | 'createdAt' | 'month' | 'balanceAmount' | 'gstAmount' | 'deductionAmount' | 'netPayable'>) => Promise<void>
+  bulkAddPayments: (paymentsList: Partial<Payment>[]) => Promise<void>
   updatePayment: (id: string, updates: Partial<Payment>) => Promise<void>
   deletePayment: (id: string) => Promise<void>
   refreshPayments: () => Promise<void>
@@ -207,6 +208,14 @@ export function PaymentProvider({ children }: { children: ReactNode }) {
       await apiCall('/payments', {
         method: 'POST',
         body: JSON.stringify(dbInput)
+      })
+      await fetchPayments()
+    },
+    bulkAddPayments: async (paymentsList) => {
+      const dbInputs = paymentsList.map(mapPaymentToDBInput)
+      await apiCall('/payments/bulk', {
+        method: 'POST',
+        body: JSON.stringify({ payments: dbInputs })
       })
       await fetchPayments()
     },

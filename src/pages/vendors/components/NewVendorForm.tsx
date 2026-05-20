@@ -10,7 +10,7 @@ export type NewVendorFormRef = {
   handleSave: () => void
 }
 
-type Tab = 'basic' | 'tax' | 'address' | 'bank' | 'docs' | 'projects'
+type Tab = 'basic' | 'tax' | 'address' | 'bank' | 'docs'
 
 type Document = {
   id: string
@@ -60,7 +60,6 @@ const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'address', label: 'Address', icon: <MapPin size={14} /> },
   { key: 'bank', label: 'Bank Details', icon: <FileText size={14} /> },
   { key: 'docs', label: 'Documents', icon: <Paperclip size={14} /> },
-  { key: 'projects', label: 'Projects', icon: <FileText size={14} /> },
 ]
 
 const DOCUMENT_TYPES = [
@@ -346,13 +345,13 @@ const NewVendorForm = forwardRef<NewVendorFormRef, { onSave?: (vendor: Vendor, l
   return (
     <div className="h-full flex flex-col bg-white">
       {/* Tabs */}
-      <div className="flex gap-0 border-b border-gray-200 px-5 py-0 overflow-x-auto scrollbar-hide">
+      <div className="flex border-b border-gray-200 px-5 py-0">
         {TABS.map(t => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
             className={clsx(
-              'flex items-center gap-1.5 px-4 py-3 text-xs font-medium border-b-2 transition-colors whitespace-nowrap',
+              'flex-1 flex items-center justify-center gap-1.5 px-1 py-3 text-xs font-medium border-b-2 transition-colors whitespace-nowrap',
               tab === t.key
                 ? 'text-indigo-600 border-indigo-600'
                 : 'text-gray-500 border-transparent hover:text-gray-700',
@@ -888,15 +887,7 @@ const NewVendorForm = forwardRef<NewVendorFormRef, { onSave?: (vendor: Vendor, l
           </div>
         )}
 
-        {/* PROJECTS TAB */}
-        {tab === 'projects' && (
-          <div className="py-8 text-center">
-            <div className="w-12 h-12 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
-              <FileText size={20} className="text-gray-400" />
-            </div>
-            <p className="text-sm text-gray-600">Projects mapped to this vendor will appear here.</p>
-          </div>
-        )}
+
       </div>
     </div>
   )

@@ -17,8 +17,10 @@ const btnSecondary =
   'inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg border border-gray-200 transition-colors shadow-2xs'
 
 function getStatusFromPayment(received: number, expectedReceipt: number): 'Pending' | 'Paid' | 'Shortfall' {
-  if (received === 0) return 'Pending'
-  if (received === expectedReceipt) return 'Paid'
+  const r = Math.round(received * 100) / 100
+  const e = Math.round(expectedReceipt * 100) / 100
+  if (r === 0) return 'Pending'
+  if (r >= e) return 'Paid'
   return 'Shortfall'
 }
 
@@ -325,8 +327,8 @@ export default function ProformaInvoicesPage() {
                       />
                     </td>
                     <td className="py-2.5 px-3 text-right text-orange-700">{fmtINR(p.tdsAmount)}</td>
-                    <td className={clsx('py-2.5 px-3 text-right font-medium', expectedReceipt - p.amountReceived > 0 ? 'text-red-600' : 'text-gray-300')}>
-                      {expectedReceipt - p.amountReceived > 0 ? fmtINR(expectedReceipt - p.amountReceived) : '—'}
+                    <td className={clsx('py-2.5 px-3 text-right font-medium', Math.round((expectedReceipt - p.amountReceived) * 100) / 100 > 0 ? 'text-red-600' : 'text-gray-300')}>
+                      {Math.round((expectedReceipt - p.amountReceived) * 100) / 100 > 0 ? fmtINR(expectedReceipt - p.amountReceived) : '—'}
                     </td>
                     <td className="py-2.5 px-3"><StatusBadge label={status} tone={status === 'Paid' ? 'green' : status === 'Shortfall' ? 'amber' : 'gray'} size="xs" /></td>
                     <td className="py-2.5 px-3 text-right">

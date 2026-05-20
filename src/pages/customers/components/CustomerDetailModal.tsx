@@ -1,7 +1,33 @@
-import { X, Phone, Mail, Building2, MapPin, DollarSign, FileText } from 'lucide-react'
+import { X, Phone, Mail, Building2, MapPin, DollarSign, FileText, Download } from 'lucide-react'
+import { useState, useEffect } from 'react'
 import type { Customer } from '../../../types/customer'
 
 export default function CustomerDetailModal({ customer, onClose }: { customer: Customer | null; onClose: () => void }) {
+  const [documents, setDocuments] = useState<any>({})
+  const [loadingDocs, setLoadingDocs] = useState(false)
+
+  useEffect(() => {
+    if (customer?.id) {
+      setLoadingDocs(true)
+      const token = sessionStorage.getItem('token')
+      fetch(`/api/customers/${customer.id}/documents`, {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        }
+      })
+        .then(res => res.json())
+        .then(res => {
+          if (res.success && res.data) {
+            setDocuments(res.data)
+          }
+        })
+        .catch(err => console.error('Error fetching customer docs:', err))
+        .finally(() => setLoadingDocs(false))
+    } else {
+      setDocuments({})
+    }
+  }, [customer])
+
   if (!customer) return null
 
   return (
@@ -104,7 +130,45 @@ export default function CustomerDetailModal({ customer, onClose }: { customer: C
             </div>
           </div>
 
-
+          {/* Documents */}
+          <div>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Documents</h3>
+            {loadingDocs ? (
+              <p className="text-sm text-gray-400">Loading documents...</p>
+            ) : Object.keys(documents).length === 0 ? (
+              <p className="text-sm text-gray-400">No documents uploaded</p>
+            ) : (
+              <div className="space-y-2.5">
+                {Object.entries(documents).map(([type, docs]: [string, any]) => {
+                  const latestDoc = docs.find((d: any) => d.isLatest) || docs[0]
+                  if (!latestDoc) return null
+                  return (
+                    <div key={type} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-200">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold text-gray-800">{type}</p>
+                        <p className="text-xs text-gray-500 truncate" title={latestDoc.originalFileName}>
+                          {latestDoc.originalFileName}
+                        </p>
+                        <p className="text-[10px] text-gray-400">
+                          Version {latestDoc.versionNumber} • {(latestDoc.fileSize / 1024).toFixed(1)} KB
+                        </p>
+                      </div>
+                      <a
+                        href={latestDoc.storedFileName}
+                        download={latestDoc.originalFileName}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="ml-3 p-1.5 bg-white hover:bg-gray-100 text-indigo-600 border border-gray-200 rounded-lg transition-colors shrink-0 flex items-center justify-center"
+                        title="Download Document"
+                      >
+                        <Download size={14} />
+                      </a>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
 
           {/* Status */}
           <div>

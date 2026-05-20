@@ -5,12 +5,13 @@ import {
 } from 'lucide-react'
 import clsx from 'clsx'
 import type { Customer } from '../../../types/customer'
+import { fmtINR } from '../../../utils/currency'
 
 export type NewCustomerFormRef = {
   handleSave: () => void
 }
 
-type Tab = 'basic' | 'tax' | 'docs'
+type Tab = 'basic' | 'tax' | 'docs' | 'projects'
 
 type Document = {
   id: string
@@ -51,6 +52,7 @@ const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'basic', label: 'Basic Details', icon: <FileText size={14} /> },
   { key: 'tax', label: 'Tax Details', icon: <FileText size={14} /> },
   { key: 'docs', label: 'Documents', icon: <Paperclip size={14} /> },
+  { key: 'projects', label: 'Projects', icon: <FileText size={14} /> },
 ]
 
 const DOCUMENT_TYPES = [
@@ -83,6 +85,8 @@ const STATES_BY_COUNTRY: { [key: string]: string[] } = {
 const NewCustomerForm = forwardRef<NewCustomerFormRef, { onSave?: (customer: Customer, logoFile?: File, newDocs?: any[], deletedDocIds?: string[]) => void; onClose?: () => void; initialCustomer?: Customer | null; open?: boolean }>(
   function NewCustomerForm({ onSave, onClose, initialCustomer, open }, ref) {
   const [tab, setTab] = useState<Tab>('basic')
+  const [projects, setProjects] = useState<any[]>([])
+  const [loadingProjects, setLoadingProjects] = useState(false)
   const [form, setForm] = useState<FormData>({
     companyName: '',
     contactPerson: '',
@@ -164,7 +168,22 @@ const NewCustomerForm = forwardRef<NewCustomerFormRef, { onSave?: (customer: Cus
             }
           })
           .catch(err => console.error('Failed to load customer documents:', err))
+
+        // Fetch projects
+        setLoadingProjects(true)
+        fetch(`/api/projected-sales?customerId=${initialCustomer.id}&limit=100`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        })
+          .then(res => res.json())
+          .then(resData => {
+            if (resData.success && resData.data?.projectedSales) {
+              setProjects(resData.data.projectedSales)
+            }
+          })
+          .catch(err => console.error('Failed to load customer projects:', err))
+          .finally(() => setLoadingProjects(false))
       } else {
+        setProjects([])
         setForm({
           companyName: '',
           contactPerson: '',
@@ -650,6 +669,74 @@ const NewCustomerForm = forwardRef<NewCustomerFormRef, { onSave?: (customer: Cus
               <div className="text-center py-8">
                 <Paperclip size={24} className="mx-auto text-gray-300 mb-2" />
                 <p className="text-xs text-gray-400">No documents added yet</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* PROJECTS TAB */}
+        {tab === 'projects' && (
+          <div className="space-y-4">
+            {!initialCustomer ? (
+              <div className="py-8 text-center text-gray-500">
+                <FileText className="mx-auto text-gray-300 mb-2" size={24} />
+                <p className="text-xs">Please save the customer details first to view or map projects.</p>
+              </div>
+            ) : loadingProjects ? (
+              <div className="py-8 text-center text-gray-500">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600 mx-auto mb-2"></div>
+                <p className="text-xs">Loading projects...</p>
+              </div>
+            ) : projects.length === 0 ? (
+              <div className="py-8 text-center text-gray-500">
+                <FileText className="mx-auto text-gray-300 mb-2" size={24} />
+                <p className="text-xs">No projects mapped to this customer yet.</p>
+              </div>
+            ) : (
+              <div className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-xs">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50/70 border-b border-gray-200">
+                        <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Project Name</th>
+                        <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Type</th>
+                        <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Billing Type</th>
+                        <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Value</th>
+                        <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Duration</th>
+                        <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {projects.map((proj) => {
+                        let statusColor = 'bg-gray-50 text-gray-600 border-gray-200'
+                        if (proj.status === 'WON') statusColor = 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                        else if (proj.status === 'LOST' || proj.status === 'CANCELLED') statusColor = 'bg-rose-50 text-rose-700 border-rose-100'
+                        else if (proj.status === 'PROPOSAL_SENT' || proj.status === 'NEGOTIATION') statusColor = 'bg-indigo-50 text-indigo-700 border-indigo-100'
+
+                        return (
+                          <tr key={proj.id} className="hover:bg-gray-50/30 transition-colors">
+                            <td className="px-4 py-3 text-sm font-semibold text-gray-950">{proj.projectName}</td>
+                            <td className="px-4 py-3 text-xs font-medium text-gray-600 capitalize">
+                              {proj.projectType?.toLowerCase().replace(/_/g, ' ')}
+                            </td>
+                            <td className="px-4 py-3 text-xs font-medium text-gray-600 capitalize">
+                              {proj.billingType?.toLowerCase().replace(/_/g, ' ')}
+                            </td>
+                            <td className="px-4 py-3 text-sm font-semibold text-gray-900 text-right">{fmtINR(Number(proj.totalValue))}</td>
+                            <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
+                              {proj.startDate ? new Date(proj.startDate).toLocaleDateString() : '—'} to {proj.endDate ? new Date(proj.endDate).toLocaleDateString() : '—'}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${statusColor}`}>
+                                {proj.status}
+                              </span>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>

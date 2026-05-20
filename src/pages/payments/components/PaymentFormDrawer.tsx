@@ -58,7 +58,8 @@ const PaymentForm = forwardRef<PaymentFormRef, {
   onClose?: () => void
   initialPayment?: Payment | null
   defaultMonth: string
-}>(function PaymentForm({ onSave, initialPayment, defaultMonth }, ref) {
+  mode?: 'create' | 'edit'
+}>(function PaymentForm({ onSave, initialPayment, defaultMonth, mode }, ref) {
   const [tab, setTab] = useState<FormTab>('basic')
   const [vendors, setVendors] = useState<DropdownVendor[]>([])
   const [employees, setEmployees] = useState<DropdownEmployee[]>([])
@@ -170,7 +171,7 @@ const PaymentForm = forwardRef<PaymentFormRef, {
     let partyName = ''
     if (form.partyType === 'Vendor') {
       const v = vendors.find(x => x.id === vendorId)
-      partyName = v ? (v.companyName || v.vendorName) : ''
+      partyName = v ? (v.companyName ? `${v.companyName} (${v.vendorName})` : v.vendorName) : ''
     } else if (form.partyType === 'Employee') {
       const e = employees.find(x => x.id === employeeId)
       partyName = e ? e.name : ''
@@ -179,7 +180,7 @@ const PaymentForm = forwardRef<PaymentFormRef, {
     }
 
     const payment: Payment = {
-      id: initialPayment?.id || '',
+      id: mode === 'edit' ? (initialPayment?.id || '') : '',
       expenseDate: form.expenseDate,
       month,
       expenseType: form.expenseType,
@@ -214,7 +215,7 @@ const PaymentForm = forwardRef<PaymentFormRef, {
   const labelCls = 'block text-xs font-semibold text-gray-700 mb-1.5'
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col min-h-0">
       {/* Tabs */}
       <div className="flex border-b border-gray-200 px-5 shrink-0">
         {TABS.map(t => (
@@ -505,15 +506,17 @@ const PaymentForm = forwardRef<PaymentFormRef, {
 })
 
 export default function PaymentFormDrawer({
-  open, onClose, onSave, initialPayment, defaultMonth,
+  open, onClose, onSave, initialPayment, defaultMonth, mode,
 }: {
   open: boolean
   onClose: () => void
   onSave?: (p: Payment) => void
   initialPayment?: Payment | null
   defaultMonth: string
+  mode?: 'create' | 'edit'
 }) {
   const formRef = useRef<PaymentFormRef>(null)
+  const isEdit = mode === 'edit' || (!mode && !!initialPayment?.id)
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
@@ -526,15 +529,15 @@ export default function PaymentFormDrawer({
   return (
     <>
       <div className="fixed inset-0 bg-black/20 z-40" onClick={onClose} />
-      <div className="fixed right-0 top-0 h-full w-[500px] bg-white shadow-2xl z-50 flex flex-col">
+      <div className="fixed right-0 top-0 h-full w-[500px] bg-white shadow-2xl z-50 flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 bg-indigo-50 rounded-lg flex items-center justify-center">
               <CreditCard size={15} className="text-indigo-600" />
             </div>
             <div>
-              <h2 className="text-sm font-semibold text-gray-900">{initialPayment ? 'Edit Payment' : 'Add Payment'}</h2>
-              <p className="text-xs text-gray-400">{initialPayment ? 'Update payment entry' : 'Record a new payment'}</p>
+              <h2 className="text-sm font-semibold text-gray-900">{isEdit ? 'Edit Payment' : 'Add Payment'}</h2>
+              <p className="text-xs text-gray-400">{isEdit ? 'Update payment entry' : 'Record a new payment'}</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors">
@@ -542,8 +545,8 @@ export default function PaymentFormDrawer({
           </button>
         </div>
 
-        <div className="flex-1 overflow-hidden">
-          <PaymentForm ref={formRef} onSave={onSave} onClose={onClose} initialPayment={initialPayment} defaultMonth={defaultMonth} />
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <PaymentForm ref={formRef} onSave={onSave} onClose={onClose} initialPayment={initialPayment} defaultMonth={defaultMonth} mode={mode || (initialPayment?.id ? 'edit' : 'create')} />
         </div>
 
         <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-gray-200 bg-gray-50 shrink-0">
@@ -551,7 +554,7 @@ export default function PaymentFormDrawer({
             Cancel
           </button>
           <button onClick={() => formRef.current?.handleSave()} className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors">
-            {initialPayment ? 'Update Payment' : 'Save Payment'}
+            {isEdit ? 'Update Payment' : 'Save Payment'}
           </button>
         </div>
       </div>
