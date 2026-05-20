@@ -30,6 +30,21 @@ async function apiCall(endpoint: string, options: RequestInit = {}) {
 type VendorState = {
   vendors: Vendor[]
   loading: boolean
+  page: number
+  limit: number
+  totalPages: number
+  totalCount: number
+  search: string
+  vendorType: string
+  startDate: string
+  endDate: string
+  active: string
+  setPage: (page: number) => void
+  setLimit: (limit: number) => void
+  setSearch: (search: string) => void
+  setVendorType: (type: string) => void
+  setDateRange: (start: string, end: string) => void
+  setActive: (active: string) => void
   addVendor: (vendor: any, logoFile?: File, newDocs?: any[]) => Promise<void>
   updateVendor: (id: string, updates: Partial<Vendor>, logoFile?: File, newDocs?: any[], deletedDocIds?: string[]) => Promise<void>
   deleteVendor: (id: string) => Promise<void>
@@ -162,9 +177,26 @@ function mapVendorToDBInput(vendor: Partial<Vendor>): any {
 export function VendorProvider({ children }: { children: ReactNode }) {
   const [vendors, setVendors] = useState<Vendor[]>([])
   const [loading, setLoading] = useState(true)
+  const [page, setPageState] = useState(1)
+  const [limit, setLimitState] = useState(10)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+  const [search, setSearchState] = useState('')
+  const [vendorType, setVendorTypeState] = useState('')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [active, setActiveState] = useState('true')
   const { token } = useAuth()
 
-  const fetchVendors = async () => {
+  const fetchVendors = async (
+    currentPage = page,
+    currentLimit = limit,
+    currentSearch = search,
+    currentActive = active,
+    currentType = vendorType,
+    currentStart = startDate,
+    currentEnd = endDate
+  ) => {
     if (!token) {
       setVendors([])
       setLoading(false)
@@ -172,10 +204,22 @@ export function VendorProvider({ children }: { children: ReactNode }) {
     }
     try {
       setLoading(true)
-      // fetch all vendors
-      const data = await apiCall('/vendors?active=all')
+      
+      const params = new URLSearchParams()
+      params.append('page', String(currentPage))
+      params.append('limit', String(currentLimit))
+      if (currentActive) params.append('active', currentActive)
+      if (currentSearch.trim()) params.append('search', currentSearch.trim())
+      if (currentType) params.append('vendorType', currentType)
+      if (currentStart) params.append('startDate', currentStart)
+      if (currentEnd) params.append('endDate', currentEnd)
+
+      const data = await apiCall(`/vendors?${params.toString()}`)
       const mapped = (data.data?.vendors || []).map(mapDBVendorToVendor)
+      
       setVendors(mapped)
+      setTotalPages(data.data?.totalPages || 1)
+      setTotalCount(data.data?.total || 0)
     } catch (err: any) {
       console.error('Failed to fetch vendors:', err.message)
     } finally {
@@ -184,12 +228,57 @@ export function VendorProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    fetchVendors()
-  }, [token])
+    fetchVendors(page, limit, search, active, vendorType, startDate, endDate)
+  }, [token, page, limit, search, active, vendorType, startDate, endDate])
+
+  const setPage = (p: number) => {
+    setPageState(p)
+  }
+
+  const setLimit = (l: number) => {
+    setLimitState(l)
+    setPageState(1)
+  }
+
+  const setSearch = (s: string) => {
+    setSearchState(s)
+    setPageState(1)
+  }
+
+  const setVendorType = (t: string) => {
+    setVendorTypeState(t)
+    setPageState(1)
+  }
+
+  const setDateRange = (start: string, end: string) => {
+    setStartDate(start)
+    setEndDate(end)
+    setPageState(1)
+  }
+
+  const setActive = (act: string) => {
+    setActiveState(act)
+    setPageState(1)
+  }
 
   const value: VendorState = {
     vendors,
     loading,
+    page,
+    limit,
+    totalPages,
+    totalCount,
+    search,
+    vendorType,
+    startDate,
+    endDate,
+    active,
+    setPage,
+    setLimit,
+    setSearch,
+    setVendorType,
+    setDateRange,
+    setActive,
 
     addVendor: async (vendor, logoFile, newDocs) => {
       const dbInput = mapVendorToDBInput(vendor)
@@ -222,7 +311,7 @@ export function VendorProvider({ children }: { children: ReactNode }) {
         })
       }
 
-      await fetchVendors()
+      await fetchVendors(page, limit, search, active, vendorType, startDate, endDate)
     },
 
     updateVendor: async (id, updates, logoFile, newDocs, deletedDocIds) => {
@@ -271,12 +360,16 @@ export function VendorProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      await fetchVendors()
+      await fetchVendors(page, limit, search, active, vendorType, startDate, endDate)
     },
 
     deleteVendor: async (id) => {
       await apiCall(`/vendors/${id}`, { method: 'DELETE' })
-      await fetchVendors()
+      const newCount = totalCount - 1
+      const newTotalPages = Math.ceil(newCount / limit) || 1
+      const targetPage = page > newTotalPages ? newTotalPages : page
+      setPage(targetPage)
+      await fetchVendors(targetPage, limit, search, active, vendorType, startDate, endDate)
     },
 
     restoreVendor: async (id) => {
@@ -284,14 +377,14 @@ export function VendorProvider({ children }: { children: ReactNode }) {
         method: 'PATCH',
         body: JSON.stringify({ status: 'ACTIVE' })
       })
-      await fetchVendors()
+      await fetchVendors(page, limit, search, active, vendorType, startDate, endDate)
     },
 
     getVendor: (id) => {
       return vendors.find(v => v.id === id)
     },
     
-    refreshVendors: fetchVendors
+    refreshVendors: () => fetchVendors(page, limit, search, active, vendorType, startDate, endDate)
   }
 
   return <VendorContext.Provider value={value}>{children}</VendorContext.Provider>

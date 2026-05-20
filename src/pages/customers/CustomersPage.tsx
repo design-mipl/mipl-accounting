@@ -1,65 +1,133 @@
-import { useState, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import {
   UserPlus, SlidersHorizontal, Search, ChevronDown,
-  HelpCircle, Download, Upload,
+  HelpCircle, Download, Upload, Calendar, ChevronLeft, ChevronRight
 } from 'lucide-react'
 import clsx from 'clsx'
 import type { Customer } from '../../types/customer'
 import { useCustomers } from '../../contexts/CustomerContext'
 import CustomerTable from './components/CustomerTable'
 import NewCustomerDrawer from './components/NewCustomerDrawer'
-
-type Tab = 'all' | 'inactive'
+import CustomerDetailModal from './components/CustomerDetailModal'
 
 const btnPrimary =
-  'inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors'
+  'inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm cursor-pointer'
 const btnSecondary =
-  'inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg border border-gray-200 transition-colors'
+  'inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg border border-gray-200 transition-colors shadow-xs cursor-pointer'
+
+type DateFilterPreset = 'all' | 'today' | '7days' | '30days' | 'custom'
 
 export default function CustomersPage() {
-  const { customers, deleteCustomer, restoreCustomer, updateCustomer, addCustomer } = useCustomers()
+  const {
+    customers,
+    loading,
+    page,
+    limit,
+    totalPages,
+    totalCount,
+    search,
+    startDate,
+    endDate,
+    active,
+    setPage,
+    setLimit,
+    setSearch,
+    setDateRange,
+    setActive,
+    deleteCustomer,
+    restoreCustomer,
+    updateCustomer,
+    addCustomer,
+  } = useCustomers()
 
-  const [tab, setTab] = useState<Tab>('all')
-  const [search, setSearch] = useState('')
+  const [searchInput, setSearchInput] = useState(search)
   const [actionsOpen, setActionsOpen] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
+  const [viewingCustomer, setViewingCustomer] = useState<Customer | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const activeCustomers = useMemo(() => customers.filter(c => c.status === 'ACTIVE' && !c.deletedAt), [customers])
-  const deletedCustomers = useMemo(() => customers.filter(c => c.status === 'INACTIVE' || !!c.deletedAt), [customers])
+  // Filters UI State
+  const [showFilters, setShowFilters] = useState(false)
+  const [datePreset, setDatePreset] = useState<DateFilterPreset>('all')
+  const [customStart, setCustomStart] = useState('')
+  const [customEnd, setCustomEnd] = useState('')
 
-  const filteredActive = useMemo(() => {
-    const q = search.toLowerCase().trim()
-    if (!q) return activeCustomers
-    return activeCustomers.filter(c =>
-      c.contactPerson.toLowerCase().includes(q) ||
-      c.companyName.toLowerCase().includes(q) ||
-      (c.phoneNumber && c.phoneNumber.includes(q)) ||
-      (c.email && c.email.toLowerCase().includes(q)),
-    )
-  }, [activeCustomers, search])
+  // Sync search input
+  useEffect(() => {
+    setSearchInput(search)
+  }, [search])
 
-  const filteredDeleted = useMemo(() => {
-    const q = search.toLowerCase().trim()
-    if (!q) return deletedCustomers
-    return deletedCustomers.filter(c =>
-      c.contactPerson.toLowerCase().includes(q) ||
-      c.companyName.toLowerCase().includes(q),
-    )
-  }, [deletedCustomers, search])
+  // Debounced search logic
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      if (searchInput !== search) {
+        setSearch(searchInput)
+      }
+    }, 400)
+
+    return () => clearTimeout(delayDebounceFn)
+  }, [searchInput, setSearch, search])
+
+  // Handle Preset Date Filter Changes
+  const handlePresetChange = (selectedPreset: DateFilterPreset) => {
+    setDatePreset(selectedPreset)
+    const todayStr = new Date().toISOString().split('T')[0]
+    
+    if (selectedPreset === 'all') {
+      setDateRange('', '')
+    } else if (selectedPreset === 'today') {
+      setDateRange(todayStr, todayStr)
+    } else if (selectedPreset === '7days') {
+      const pastDate = new Date()
+      pastDate.setDate(pastDate.getDate() - 7)
+      const pastStr = pastDate.toISOString().split('T')[0]
+      setDateRange(pastStr, todayStr)
+    } else if (selectedPreset === '30days') {
+      const pastDate = new Date()
+      pastDate.setDate(pastDate.getDate() - 30)
+      const pastStr = pastDate.toISOString().split('T')[0]
+      setDateRange(pastStr, todayStr)
+    }
+  }
+
+  // Handle Custom Date Filter Apply
+  const applyCustomDates = () => {
+    if (customStart || customEnd) {
+      setDateRange(customStart, customEnd)
+    }
+  }
+
+  // Handle Clear All Filters
+  const handleClearAllFilters = () => {
+    setSearchInput('')
+    setSearch('')
+    setDatePreset('all')
+    setCustomStart('')
+    setCustomEnd('')
+    setDateRange('', '')
+  }
 
   function handleDelete(id: string) {
-    deleteCustomer(id)
+    deleteCustomer(id).catch(err => {
+      console.error(err)
+      alert(err.message || 'Failed to delete customer')
+    })
   }
 
   function handleRestore(id: string) {
-    restoreCustomer(id)
+    restoreCustomer(id).catch(err => {
+      console.error(err)
+      alert(err.message || 'Failed to restore customer')
+    })
   }
 
   function handleStatusChange(id: string, status: 'ACTIVE' | 'INACTIVE') {
-    updateCustomer(id, { status })
+    updateCustomer(id, { status }).catch(err => {
+      console.error(err)
+      alert(err.message || 'Failed to change customer status')
+    })
   }
 
   async function handleSaveCustomer(customer: Customer, logoFile?: File, newDocs?: any[], deletedDocIds?: string[]) {
@@ -86,42 +154,66 @@ export default function CustomersPage() {
     setDrawerOpen(true)
   }
 
+  function handleView(customer: Customer) {
+    setViewingCustomer(customer)
+  }
+
   function closeDrawer() {
     setDrawerOpen(false)
     setEditingCustomer(null)
     setError(null)
   }
 
-  const TABS: { key: Tab; label: string; count?: number }[] = [
-    { key: 'all', label: 'All Customers', count: activeCustomers.length },
-    { key: 'inactive', label: 'Inactive Clients', count: deletedCustomers.length },
+  const currentTab = active === 'false' ? 'inactive' : 'all'
+
+  const TABS: { key: 'all' | 'inactive'; label: string; count?: number }[] = [
+    { key: 'all', label: 'All Customers', count: currentTab === 'all' ? totalCount : undefined },
+    { key: 'inactive', label: 'Inactive Clients', count: currentTab === 'inactive' ? totalCount : undefined },
   ]
 
+  // Pagination calculation
+  const startIndex = (page - 1) * limit + 1
+  const endIndex = Math.min(page * limit, totalCount)
+
+  // Generate page numbers
+  const pageNumbers = []
+  for (let i = 1; i <= totalPages; i++) {
+    pageNumbers.push(i)
+  }
+
+  const hasActiveFilters = search || datePreset !== 'all' || customStart || customEnd
+
   return (
-    <div className="max-w-[1200px] mx-auto">
+    <div className="max-w-[1200px] mx-auto pb-10">
       {/* Page header */}
-      <div className="flex items-center gap-2 mb-5">
-        <h1 className="text-xl font-bold text-gray-900">Customers</h1>
-        <button
-          title="Help"
-          className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 hover:bg-gray-200 hover:text-gray-600 transition-colors"
-        >
-          <HelpCircle size={12} />
+      <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center gap-2">
+          <h1 className="text-xl font-bold text-gray-900">Customers</h1>
+          <button
+            title="Help"
+            className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 hover:bg-gray-200 hover:text-gray-600 transition-colors cursor-pointer"
+          >
+            <HelpCircle size={12} />
+          </button>
+        </div>
+
+        <button onClick={() => setDrawerOpen(true)} className={btnPrimary}>
+          <UserPlus size={14} />
+          New Customer
         </button>
       </div>
 
-
       {/* Card container */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
         {/* Tabs */}
-        <div className="flex items-center gap-0 border-b border-gray-100 px-4">
+        <div className="flex items-center gap-0 border-b border-gray-100 px-4 shrink-0 bg-white">
           {TABS.map(t => (
             <button
               key={t.key}
-              onClick={() => setTab(t.key)}
+              onClick={() => setActive(t.key === 'all' ? 'true' : 'false')}
               className={clsx(
-                'flex items-center gap-1.5 px-3 py-3.5 text-sm font-medium border-b-2 transition-colors -mb-px',
-                tab === t.key
+                'flex items-center gap-1.5 px-3 py-3.5 text-sm font-medium border-b-2 transition-colors -mb-px cursor-pointer',
+                currentTab === t.key
                   ? 'text-indigo-600 border-indigo-600'
                   : 'text-gray-500 border-transparent hover:text-gray-800',
               )}
@@ -129,8 +221,8 @@ export default function CustomersPage() {
               {t.label}
               {t.count !== undefined && (
                 <span className={clsx(
-                  'inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-xs font-semibold',
-                  tab === t.key ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-500',
+                  'inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-xs font-semibold transition-all',
+                  currentTab === t.key ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-500',
                 )}>
                   {t.count}
                 </span>
@@ -140,25 +232,49 @@ export default function CustomersPage() {
         </div>
 
         {/* Search + actions row */}
-        <div className="flex items-center gap-2.5 px-4 py-3 border-b border-gray-100">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 px-4 py-3 border-b border-gray-100 bg-gray-50/50 shrink-0">
           <div className="relative flex-1 max-w-sm">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
+              value={searchInput}
+              onChange={e => setSearchInput(e.target.value)}
               placeholder="Search customers by name, company, phone etc."
-              className="w-full pl-8 pr-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 placeholder:text-gray-400"
+              className="w-full pl-8 pr-3 py-2 text-sm bg-white border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 placeholder:text-gray-400 transition-shadow shadow-2xs"
             />
           </div>
 
-          <div className="flex items-center gap-2 ml-auto">
-            <div className="relative">
+          <div className="flex items-center gap-2 sm:ml-auto">
+            {/* Filters toggle */}
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={clsx(
+                btnSecondary,
+                hasActiveFilters && 'border-indigo-200 bg-indigo-50/20 text-indigo-700 hover:bg-indigo-50/40'
+              )}
+            >
+              <SlidersHorizontal size={14} />
+              Filters
+              {hasActiveFilters && (
+                <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse" />
+              )}
+            </button>
+
+            {/* Clear Filters Button */}
+            {hasActiveFilters && (
+              <button
+                onClick={handleClearAllFilters}
+                className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors py-1.5 px-2 cursor-pointer"
+              >
+                Clear Filters
+              </button>
+            )}
+
+            <div className="relative ml-auto sm:ml-0">
               <button
                 onClick={() => setActionsOpen(o => !o)}
                 className={btnSecondary}
               >
-                <SlidersHorizontal size={14} />
                 Actions
                 <ChevronDown size={13} className={clsx('transition-transform', actionsOpen && 'rotate-180')} />
               </button>
@@ -178,37 +294,159 @@ export default function CustomersPage() {
                 </>
               )}
             </div>
-
-            <button onClick={() => setDrawerOpen(true)} className={btnPrimary}>
-              <UserPlus size={14} />
-              New Customer
-            </button>
           </div>
         </div>
 
-        {/* Table content */}
-        <div className="px-4 py-2 min-h-[300px]">
-          {tab === 'all' && (
-            <CustomerTable customers={filteredActive} tab="all" onDelete={handleDelete} onRestore={handleRestore} onStatusChange={handleStatusChange} onEdit={handleEdit} />
-          )}
-          {tab === 'inactive' && (
-            <CustomerTable customers={filteredDeleted} tab="inactive" onDelete={handleDelete} onRestore={handleRestore} onEdit={handleEdit} />
-          )}
-        </div>
+        {/* Collapsible filter options panel */}
+        {showFilters && (
+          <div className="px-4 py-3.5 bg-gray-50 border-b border-gray-100 flex flex-col gap-4 animate-fade-in text-sm shrink-0">
+            {/* Created Date Preset Row */}
+            <div className="flex flex-col md:flex-row md:items-center gap-4">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-xs font-medium text-gray-500 w-24">Created Date:</span>
+                {(['all', 'today', '7days', '30days', 'custom'] as DateFilterPreset[]).map(preset => (
+                  <button
+                    key={preset}
+                    onClick={() => handlePresetChange(preset)}
+                    className={clsx(
+                      'px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors cursor-pointer',
+                      datePreset === preset
+                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
+                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-800'
+                    )}
+                  >
+                    {preset === 'all' && 'All Time'}
+                    {preset === 'today' && 'Today'}
+                    {preset === '7days' && 'Past 7 Days'}
+                    {preset === '30days' && 'Past 30 Days'}
+                    {preset === 'custom' && 'Custom Range'}
+                  </button>
+                ))}
+              </div>
 
-        {/* Footer */}
-        {(tab === 'all' || tab === 'inactive') && (
-          <div className="px-4 py-3 border-t border-gray-100">
-            <p className="text-xs text-gray-400">
-              {tab === 'all'
-                ? `Showing ${filteredActive.length} of ${activeCustomers.length} customers`
-                : `${filteredDeleted.length} inactive customer${filteredDeleted.length !== 1 ? 's' : ''}`}
-            </p>
+              {/* Custom dates picker */}
+              {datePreset === 'custom' && (
+                <div className="flex items-center gap-2 border-t md:border-t-0 border-gray-100 pt-3 md:pt-0 md:pl-4 md:border-l">
+                  <div className="flex items-center gap-1.5">
+                    <Calendar size={13} className="text-gray-400" />
+                    <input
+                      type="date"
+                      value={customStart}
+                      onChange={e => setCustomStart(e.target.value)}
+                      className="px-2.5 py-1 text-xs border border-gray-200 rounded-md bg-white outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100"
+                    />
+                    <span className="text-xs text-gray-400">to</span>
+                    <input
+                      type="date"
+                      value={customEnd}
+                      onChange={e => setCustomEnd(e.target.value)}
+                      className="px-2.5 py-1 text-xs border border-gray-200 rounded-md bg-white outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100"
+                    />
+                  </div>
+                  <button
+                    onClick={applyCustomDates}
+                    className="px-2.5 py-1.5 text-xs font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-md transition-colors cursor-pointer"
+                  >
+                    Apply
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
+
+        {/* Table content */}
+        <div className="px-4 py-2 min-h-[300px] flex-1 relative">
+          {loading ? (
+            <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center">
+              <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-gray-100 shadow-md animate-fade-in">
+                <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                <span className="text-xs font-semibold text-gray-600">Loading customers...</span>
+              </div>
+            </div>
+          ) : null}
+
+          <CustomerTable
+            customers={customers}
+            tab={currentTab}
+            onDelete={handleDelete}
+            onRestore={handleRestore}
+            onStatusChange={handleStatusChange}
+            onEdit={handleEdit}
+            onView={handleView}
+          />
+        </div>
+
+        {/* Footer / Pagination */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3.5 border-t border-gray-100 bg-gray-50/50 shrink-0">
+          {/* Total Info & Entries Page Limit Select */}
+          <div className="flex items-center gap-4 text-xs text-gray-500">
+            <span>
+              {totalCount > 0 ? (
+                <>Showing <b className="font-semibold text-gray-800">{startIndex}</b> to <b className="font-semibold text-gray-800">{endIndex}</b> of <b className="font-semibold text-gray-800">{totalCount}</b> entries</>
+              ) : (
+                'No entries to show'
+              )}
+            </span>
+            <div className="flex items-center gap-1.5 border-l border-gray-200 pl-4">
+              <span>Show</span>
+              <select
+                value={limit}
+                onChange={e => setLimit(Number(e.target.value))}
+                className="px-1.5 py-1 text-xs border border-gray-200 rounded-md bg-white text-gray-700 outline-none focus:border-indigo-400 font-semibold cursor-pointer"
+              >
+                {[5, 10, 25, 50].map(val => (
+                  <option key={val} value={val}>{val}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Navigation Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1.5">
+              {/* Previous page button */}
+              <button
+                onClick={() => setPage(page - 1)}
+                disabled={page === 1}
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50 hover:border-gray-300 text-gray-600 hover:text-gray-800 disabled:opacity-40 disabled:hover:bg-white disabled:hover:border-gray-200 disabled:hover:text-gray-600 transition-colors shadow-2xs cursor-pointer"
+              >
+                <ChevronLeft size={15} />
+              </button>
+
+              {/* Number buttons */}
+              <div className="flex items-center gap-1.5">
+                {pageNumbers.map(num => (
+                  <button
+                    key={num}
+                    onClick={() => setPage(num)}
+                    className={clsx(
+                      'w-8 h-8 flex items-center justify-center text-xs font-semibold rounded-lg border transition-all cursor-pointer shadow-2xs',
+                      page === num
+                        ? 'bg-indigo-600 border-indigo-600 hover:bg-indigo-700 text-white shadow-sm'
+                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300'
+                    )}
+                  >
+                    {num}
+                  </button>
+                ))}
+              </div>
+
+              {/* Next page button */}
+              <button
+                onClick={() => setPage(page + 1)}
+                disabled={page === totalPages}
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50 hover:border-gray-300 text-gray-600 hover:text-gray-800 disabled:opacity-40 disabled:hover:bg-white disabled:hover:border-gray-200 disabled:hover:text-gray-600 transition-colors shadow-2xs cursor-pointer"
+              >
+                <ChevronRight size={15} />
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <NewCustomerDrawer open={drawerOpen} onClose={closeDrawer} onSave={handleSaveCustomer} initialCustomer={editingCustomer} saving={saving} error={error} />
+      <CustomerDetailModal customer={viewingCustomer} onClose={() => setViewingCustomer(null)} />
     </div>
   )
 }

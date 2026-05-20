@@ -49,8 +49,8 @@ type SalesState = {
   deleteMilestone: (id: string) => void
   setMilestonesForProject: (projectId: string, milestones: Milestone[]) => void
 
-  upsertAMC: (a: AMC) => void
-  deleteAMC: (id: string) => void
+  upsertAMC: (a: AMC) => Promise<void>
+  deleteAMC: (id: string) => Promise<void>
 
   upsertAMCCycle: (c: AMCBillingCycle) => void
   deleteAMCCycle: (id: string) => void
@@ -62,6 +62,49 @@ type SalesState = {
   deleteTI: (id: string) => void
   
   refreshSales: () => Promise<void>
+  fetchProjectedSalesPaginated: (params?: {
+    page?: number
+    limit?: number
+    search?: string
+    customerId?: string
+    projectType?: string
+    billingType?: string
+    status?: string
+    startDate?: string
+    endDate?: string
+  }) => Promise<{ projects: Project[]; milestones: Milestone[]; meta: { totalCount: number; page: number; limit: number; totalPages: number } }>
+  fetchAMCsPaginated: (params?: {
+    page?: number
+    limit?: number
+    search?: string
+    customerId?: string
+    billingFrequency?: string
+    status?: string
+    startDate?: string
+    endDate?: string
+  }) => Promise<{ amcs: AMC[]; meta: { totalCount: number; page: number; limit: number; totalPages: number } }>
+  fetchPIsPaginated: (params?: {
+    page?: number
+    limit?: number
+    search?: string
+    clientId?: string
+    projectId?: string
+    status?: string
+    startDate?: string
+    endDate?: string
+  }) => Promise<{ pis: ProformaInvoice[]; meta: { totalCount: number; page: number; limit: number; totalPages: number } }>
+  fetchTIsPaginated: (params?: {
+    page?: number
+    limit?: number
+    search?: string
+    clientId?: string
+    projectId?: string
+    status?: string
+    startDate?: string
+    endDate?: string
+  }) => Promise<{ tis: TaxInvoice[]; meta: { totalCount: number; page: number; limit: number; totalPages: number } }>
+  fetchAMCDetails: (amcId: string) => Promise<void>
+  fetchAMCs: () => Promise<void>
 }
 
 function mapProjectToDBInput(p: Project, projectMilestones: Milestone[]): any {
@@ -231,13 +274,95 @@ function mapDBMilestoneToMilestone(dbMs: any, index: number, totalCount: number)
   }
 }
 
+function mapDBAMCToAMC(dbAmc: any): AMC {
+  const frequencyMap: Record<string, any> = {
+    'MONTHLY': 'Monthly',
+    'QUARTERLY': 'Quarterly',
+    'HALF_YEARLY': 'Half-Yearly',
+    'YEARLY': 'Yearly',
+  }
+  const frequency = frequencyMap[dbAmc.billingFrequency] || 'Monthly'
+
+  const statusMap: Record<string, any> = {
+    'ACTIVE': 'Active',
+    'EXPIRED': 'Expired',
+    'ON_HOLD': 'On Hold',
+    'CANCELLED': 'Cancelled',
+  }
+  const status = statusMap[dbAmc.status] || 'Active'
+
+  return {
+    id: dbAmc.id,
+    customerId: dbAmc.customerId,
+    customerName: dbAmc.customer?.companyName || dbAmc.customer?.contactPerson || 'Unknown',
+    name: dbAmc.amcName,
+    startDate: dbAmc.startDate ? dbAmc.startDate.substring(0, 10) : '',
+    endDate: dbAmc.endDate ? dbAmc.endDate.substring(0, 10) : '',
+    frequency,
+    baseAmount: Number(dbAmc.baseAmountPerCycle),
+    gstPercent: Number(dbAmc.gstPercentage),
+    tdsPercent: Number(dbAmc.tdsPercentage),
+    nextBillingDate: dbAmc.nextBillingDate ? dbAmc.nextBillingDate.substring(0, 10) : '',
+    status,
+    notes: dbAmc.notes || '',
+    createdAt: dbAmc.createdAt,
+  }
+}
+
+function mapDBAMCCycleToCycle(dbCycle: any): AMCBillingCycle {
+  const piStatusMap: Record<string, any> = {
+    'NOT_RAISED': 'Not Raised',
+    'DRAFT': 'Draft',
+    'SENT': 'Sent',
+    'UPLOADED': 'Uploaded',
+    'CANCELLED': 'Cancelled',
+  }
+  const piStatus = piStatusMap[dbCycle.piStatus] || 'Not Raised'
+
+  const tiStatusMap: Record<string, any> = {
+    'NOT_CREATED': 'Not Created',
+    'DRAFT': 'Draft',
+    'SENT': 'Sent',
+    'UPLOADED': 'Uploaded',
+    'CANCELLED': 'Cancelled',
+  }
+  const tiStatus = tiStatusMap[dbCycle.tiStatus] || 'Not Created'
+
+  const paymentStatusMap: Record<string, any> = {
+    'PENDING': 'Pending',
+    'PARTIALLY_PAID': 'Partial',
+    'PAID': 'Matched',
+    'SHORTFALL': 'Shortfall',
+    'CANCELLED': 'Pending',
+  }
+  const paymentStatus = paymentStatusMap[dbCycle.paymentStatus] || 'Pending'
+
+  return {
+    id: dbCycle.id,
+    amcId: dbCycle.amcId,
+    period: dbCycle.cycleName,
+    dueDate: dbCycle.dueDate ? dbCycle.dueDate.substring(0, 10) : '',
+    baseAmount: Number(dbCycle.baseAmount),
+    gstAmount: Number(dbCycle.gstAmount),
+    grossAmount: Number(dbCycle.grossAmount),
+    tdsAmount: Number(dbCycle.tdsAmount),
+    expectedReceipt: Number(dbCycle.expectedAmount),
+    amountReceived: Number(dbCycle.receivedAmount),
+    piStatus,
+    tiStatus,
+    paymentStatus,
+    piFileName: dbCycle.piFile || undefined,
+    tiFileName: dbCycle.tiFile || undefined,
+  }
+}
+
 const SalesContext = createContext<SalesState | null>(null)
 
 export function SalesProvider({ children }: { children: ReactNode }) {
   const [projects, setProjects] = useState<Project[]>([])
   const [milestones, setMilestones] = useState<Milestone[]>([])
-  const [amcs, setAMCs] = useState<AMC[]>(DUMMY_AMCS)
-  const [amcCycles, setAMCCycles] = useState<AMCBillingCycle[]>(DUMMY_AMC_CYCLES)
+  const [amcs, setAMCs] = useState<AMC[]>([])
+  const [amcCycles, setAMCCycles] = useState<AMCBillingCycle[]>([])
   const [pis, setPIs] = useState<ProformaInvoice[]>([])
   const [tis, setTIs] = useState<TaxInvoice[]>([])
   const [loading, setLoading] = useState(true)
@@ -350,9 +475,173 @@ export function SalesProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const fetchProjectedSalesPaginated = async (params?: any) => {
+    const query = new URLSearchParams()
+    if (params) {
+      Object.entries(params).forEach(([key, val]) => {
+        if (val !== undefined && val !== null && val !== '') {
+          query.append(key, String(val))
+        }
+      })
+    }
+    const data = await apiCall(`/projected-sales?${query.toString()}`)
+    const dbSales = data.data?.projectedSales || []
+    
+    const mappedProjects = dbSales.map(mapDBProjectedSaleToProject)
+    const mappedMilestones: Milestone[] = []
+    
+    dbSales.forEach((dbSale: any) => {
+      const msList = dbSale.milestones || []
+      const sortedMs = [...msList].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+      sortedMs.forEach((dbMs: any, index: number) => {
+        mappedMilestones.push(mapDBMilestoneToMilestone(dbMs, index, sortedMs.length))
+      })
+    })
+
+    return {
+      projects: mappedProjects,
+      milestones: mappedMilestones,
+      meta: data.data?.meta || { totalCount: mappedProjects.length, page: 1, limit: 10, totalPages: 1 }
+    }
+  }
+
+  const fetchAMCs = async () => {
+    if (!token) {
+      setAMCs([])
+      setAMCCycles([])
+      return
+    }
+    try {
+      const data = await apiCall('/amcs?limit=10000')
+      const dbAmcs = data.data?.amcs || []
+      const mapped = dbAmcs.map(mapDBAMCToAMC)
+      setAMCs(mapped)
+    } catch (err: any) {
+      console.error('Failed to fetch AMCs:', err.message)
+    }
+  }
+
+  const fetchAMCsPaginated = async (params?: any) => {
+    const query = new URLSearchParams()
+    if (params) {
+      Object.entries(params).forEach(([key, val]) => {
+        if (val !== undefined && val !== null && val !== '') {
+          query.append(key, String(val))
+        }
+      })
+    }
+    const data = await apiCall(`/amcs?${query.toString()}`)
+    const dbAmcs = data.data?.amcs || []
+    const mapped = dbAmcs.map(mapDBAMCToAMC)
+    return {
+      amcs: mapped,
+      meta: data.data?.meta || { totalCount: data.data?.meta?.totalCount || mapped.length, page: 1, limit: 10, totalPages: 1 }
+    }
+  }
+
+  const fetchAMCDetails = async (amcId: string) => {
+    try {
+      const res = await apiCall(`/amcs/${amcId}`)
+      if (res.success && res.data) {
+        const dbCycles = res.data.billingCycles || []
+        const mappedCycles = dbCycles.map(mapDBAMCCycleToCycle)
+        setAMCCycles(prev => [
+          ...prev.filter(c => c.amcId !== amcId),
+          ...mappedCycles
+        ])
+      }
+    } catch (err: any) {
+      console.error('Failed to fetch AMC details:', err.message)
+    }
+  }
+
+  const fetchPIsPaginated = async (params?: any) => {
+    const query = new URLSearchParams()
+    if (params) {
+      Object.entries(params).forEach(([key, val]) => {
+        if (val !== undefined && val !== null && val !== '') {
+          query.append(key, String(val))
+        }
+      })
+    }
+    const data = await apiCall(`/invoices/proforma?${query.toString()}`)
+    const mappedPIs: ProformaInvoice[] = (data.data?.invoices || []).map((dbPi: any) => ({
+      id: dbPi.id,
+      piNumber: dbPi.piNumber,
+      piDate: new Date(dbPi.piDate).toISOString().slice(0, 10),
+      clientId: dbPi.clientId,
+      clientName: dbPi.customer?.companyName || 'Unknown Client',
+      projectType: dbPi.projectedSale?.projectType || '',
+      projectId: dbPi.projectId,
+      projectName: dbPi.projectedSale?.projectName,
+      milestoneId: dbPi.milestoneId,
+      milestoneLabel: dbPi.milestone ? dbPi.milestone.milestoneName : undefined,
+      baseAmount: dbPi.baseAmount,
+      gstPercent: dbPi.gstPercentage,
+      gstAmount: dbPi.gstAmount,
+      tdsPercent: dbPi.tdsPercentage,
+      tdsAmount: dbPi.tdsAmount,
+      grossAmount: dbPi.grossAmount,
+      amountReceived: dbPi.amountReceived,
+      outstandingBeyondTds: dbPi.outstandingAmount,
+      status: dbPi.status,
+      piSent: dbPi.status === 'SENT',
+      fileName: dbPi.piFile || undefined,
+      notes: dbPi.notes || '',
+      createdAt: dbPi.createdAt
+    }))
+    return {
+      pis: mappedPIs,
+      meta: data.data?.meta || { totalCount: data.data?.meta?.totalCount || mappedPIs.length, page: 1, limit: 10, totalPages: 1 }
+    }
+  }
+
+  const fetchTIsPaginated = async (params?: any) => {
+    const query = new URLSearchParams()
+    if (params) {
+      Object.entries(params).forEach(([key, val]) => {
+        if (val !== undefined && val !== null && val !== '') {
+          query.append(key, String(val))
+        }
+      })
+    }
+    const data = await apiCall(`/invoices/tax?${query.toString()}`)
+    const mappedTIs: TaxInvoice[] = (data.data?.invoices || []).map((dbTi: any) => ({
+      id: dbTi.id,
+      tiNumber: dbTi.tiNumber,
+      tiDate: new Date(dbTi.tiDate).toISOString().slice(0, 10),
+      linkedPiId: dbTi.piId || undefined,
+      clientId: dbTi.clientId,
+      clientName: dbTi.customer?.companyName || 'Unknown Client',
+      projectType: dbTi.projectedSale?.projectType || '',
+      projectId: dbTi.projectId,
+      projectName: dbTi.projectedSale?.projectName,
+      milestoneId: dbTi.milestoneId,
+      milestoneLabel: dbTi.milestone ? dbTi.milestone.milestoneName : undefined,
+      baseAmount: dbTi.baseAmount,
+      gstPercent: dbTi.gstPercentage,
+      gstAmount: dbTi.gstAmount,
+      tdsPercent: dbTi.tdsPercentage,
+      tdsAmount: dbTi.tdsAmount,
+      grossAmount: dbTi.grossAmount,
+      amountReceived: dbTi.amountReceived,
+      outstandingBeyondTds: dbTi.outstandingAmount,
+      status: dbTi.status,
+      invoiceSent: dbTi.status === 'SENT',
+      fileName: dbTi.tiFile || undefined,
+      notes: dbTi.notes || '',
+      createdAt: dbTi.createdAt
+    }))
+    return {
+      tis: mappedTIs,
+      meta: data.data?.meta || { totalCount: data.data?.meta?.totalCount || mappedTIs.length, page: 1, limit: 10, totalPages: 1 }
+    }
+  }
+
   useEffect(() => {
     fetchProjectedSales()
     fetchInvoices()
+    fetchAMCs()
   }, [token])
 
   const flushProject = async (projectId: string) => {
@@ -456,10 +745,60 @@ export function SalesProvider({ children }: { children: ReactNode }) {
       queueProjectUpdate(projectId, { milestones: newMs })
     },
 
-    upsertAMC: a => setAMCs(prev => upsert(prev, a)),
-    deleteAMC: id => {
-      setAMCs(prev => prev.filter(a => a.id !== id))
-      setAMCCycles(prev => prev.filter(c => c.amcId !== id))
+    upsertAMC: async (a) => {
+      setAMCs(prev => upsert(prev, a))
+      try {
+        const isNew = a.id.length <= 10 || !amcs.some(x => x.id === a.id)
+        
+        const frequencyMap: Record<string, string> = {
+          'Monthly': 'MONTHLY',
+          'Quarterly': 'QUARTERLY',
+          'Half-Yearly': 'HALF_YEARLY',
+          'Yearly': 'YEARLY',
+        }
+        const billingFrequency = frequencyMap[a.frequency] || 'MONTHLY'
+
+        const statusMap: Record<string, string> = {
+          'Active': 'ACTIVE',
+          'Expired': 'EXPIRED',
+          'On Hold': 'ON_HOLD',
+          'Cancelled': 'CANCELLED',
+        }
+        const status = statusMap[a.status] || 'ACTIVE'
+
+        const payload = {
+          customerId: a.customerId,
+          amcName: a.name,
+          startDate: new Date(a.startDate).toISOString(),
+          endDate: new Date(a.endDate).toISOString(),
+          billingFrequency,
+          status,
+          baseAmountPerCycle: Number(a.baseAmount) || 0,
+          gstPercentage: Number(a.gstPercent) || 0,
+          tdsPercentage: Number(a.tdsPercent) || 0,
+          notes: a.notes,
+        }
+
+        if (isNew) {
+          await apiCall('/amcs', { method: 'POST', body: JSON.stringify(payload) })
+        } else {
+          await apiCall(`/amcs/${a.id}`, { method: 'PUT', body: JSON.stringify(payload) })
+        }
+        await fetchAMCs()
+      } catch (err: any) {
+        console.error('Failed to save AMC:', err.message)
+        alert('Failed to save AMC: ' + err.message)
+        await fetchAMCs() // Revert on failure
+      }
+    },
+    deleteAMC: async (id) => {
+      try {
+        await apiCall(`/amcs/${id}`, { method: 'DELETE' })
+        await fetchAMCs()
+      } catch (err: any) {
+        console.error('Failed to delete AMC:', err.message)
+        alert('Failed to delete AMC: ' + err.message)
+      }
     },
 
     upsertAMCCycle: c => setAMCCycles(prev => upsert(prev, c)),
@@ -582,7 +921,13 @@ export function SalesProvider({ children }: { children: ReactNode }) {
     refreshSales: async () => {
       await fetchProjectedSales()
       await fetchInvoices()
-    }
+    },
+    fetchProjectedSalesPaginated,
+    fetchAMCsPaginated,
+    fetchPIsPaginated,
+    fetchTIsPaginated,
+    fetchAMCDetails,
+    fetchAMCs
   }
 
   return <SalesContext.Provider value={value}>{children}</SalesContext.Provider>

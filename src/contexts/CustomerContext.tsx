@@ -30,6 +30,19 @@ async function apiCall(endpoint: string, options: RequestInit = {}) {
 type CustomerState = {
   customers: Customer[]
   loading: boolean
+  page: number
+  limit: number
+  totalPages: number
+  totalCount: number
+  search: string
+  startDate: string
+  endDate: string
+  active: string
+  setPage: (page: number) => void
+  setLimit: (limit: number) => void
+  setSearch: (search: string) => void
+  setDateRange: (start: string, end: string) => void
+  setActive: (active: string) => void
   addCustomer: (customer: any, logoFile?: File, newDocs?: any[]) => Promise<void>
   updateCustomer: (id: string, updates: Partial<Customer>, logoFile?: File, newDocs?: any[], deletedDocIds?: string[]) => Promise<void>
   deleteCustomer: (id: string) => Promise<void>
@@ -43,9 +56,24 @@ const CustomerContext = createContext<CustomerState | null>(null)
 export function CustomerProvider({ children }: { children: ReactNode }) {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
+  const [page, setPageState] = useState(1)
+  const [limit, setLimitState] = useState(10)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+  const [search, setSearchState] = useState('')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [active, setActiveState] = useState('true')
   const { token } = useAuth()
 
-  const fetchCustomers = async () => {
+  const fetchCustomers = async (
+    currentPage = page,
+    currentLimit = limit,
+    currentSearch = search,
+    currentActive = active,
+    currentStart = startDate,
+    currentEnd = endDate
+  ) => {
     if (!token) {
       setCustomers([])
       setLoading(false)
@@ -53,8 +81,18 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
     }
     try {
       setLoading(true)
-      const data = await apiCall('/customers')
+      const params = new URLSearchParams()
+      params.append('page', String(currentPage))
+      params.append('limit', String(currentLimit))
+      if (currentActive) params.append('active', currentActive)
+      if (currentSearch.trim()) params.append('search', currentSearch.trim())
+      if (currentStart) params.append('startDate', currentStart)
+      if (currentEnd) params.append('endDate', currentEnd)
+
+      const data = await apiCall(`/customers?${params.toString()}`)
       setCustomers(data.data?.customers || [])
+      setTotalPages(data.data?.pagination?.totalPages || 1)
+      setTotalCount(data.data?.pagination?.total || 0)
     } catch (err: any) {
       console.error('Failed to fetch customers:', err.message)
     } finally {
@@ -63,12 +101,50 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    fetchCustomers()
-  }, [token])
+    fetchCustomers(page, limit, search, active, startDate, endDate)
+  }, [token, page, limit, search, active, startDate, endDate])
+
+  const setPage = (p: number) => {
+    setPageState(p)
+  }
+
+  const setLimit = (l: number) => {
+    setLimitState(l)
+    setPageState(1)
+  }
+
+  const setSearch = (s: string) => {
+    setSearchState(s)
+    setPageState(1)
+  }
+
+  const setDateRange = (start: string, end: string) => {
+    setStartDate(start)
+    setEndDate(end)
+    setPageState(1)
+  }
+
+  const setActive = (act: string) => {
+    setActiveState(act)
+    setPageState(1)
+  }
 
   const value: CustomerState = {
     customers,
     loading,
+    page,
+    limit,
+    totalPages,
+    totalCount,
+    search,
+    startDate,
+    endDate,
+    active,
+    setPage,
+    setLimit,
+    setSearch,
+    setDateRange,
+    setActive,
 
     addCustomer: async (customer, logoFile, newDocs) => {
       const res = await apiCall('/customers', {
@@ -100,7 +176,7 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
         })
       }
 
-      await fetchCustomers()
+      await fetchCustomers(page, limit, search, active, startDate, endDate)
     },
 
     updateCustomer: async (id, updates, logoFile, newDocs, deletedDocIds) => {
@@ -148,12 +224,16 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      await fetchCustomers()
+      await fetchCustomers(page, limit, search, active, startDate, endDate)
     },
 
     deleteCustomer: async (id) => {
       await apiCall(`/customers/${id}`, { method: 'DELETE' })
-      setCustomers(prev => prev.map(c => c.id === id ? { ...c, status: 'INACTIVE', deletedAt: new Date().toISOString() } : c))
+      const newCount = totalCount - 1
+      const newTotalPages = Math.ceil(newCount / limit) || 1
+      const targetPage = page > newTotalPages ? newTotalPages : page
+      setPage(targetPage)
+      await fetchCustomers(targetPage, limit, search, active, startDate, endDate)
     },
 
     restoreCustomer: async (id) => {
@@ -161,14 +241,14 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
         method: 'PATCH',
         body: JSON.stringify({ status: 'ACTIVE' })
       })
-      await fetchCustomers()
+      await fetchCustomers(page, limit, search, active, startDate, endDate)
     },
 
     getCustomer: (id) => {
       return customers.find(c => c.id === id)
     },
     
-    refreshCustomers: fetchCustomers
+    refreshCustomers: () => fetchCustomers(page, limit, search, active, startDate, endDate)
   }
 
   return <CustomerContext.Provider value={value}>{children}</CustomerContext.Provider>
