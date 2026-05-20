@@ -75,6 +75,7 @@ export type Project = {
   id: string
   customerId: string
   customerName: string    // denormalized for table display
+  name: string
   projectType: ProjectType
   startDate: string       // YYYY-MM-DD
   endDate: string

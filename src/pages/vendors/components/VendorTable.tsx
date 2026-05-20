@@ -9,12 +9,12 @@ type Props = {
   tab: 'all' | 'inactive'
   onDelete: (id: string) => void
   onRestore: (id: string) => void
-  onStatusChange?: (id: string, status: 'active' | 'inactive') => void
+  onStatusChange?: (id: string, status: 'ACTIVE' | 'INACTIVE') => void
   onEdit?: (vendor: Vendor) => void
   onView?: (vendor: Vendor) => void
 }
 
-function StatusToggle({ status, onChange }: { status: 'active' | 'inactive'; onChange: (s: 'active' | 'inactive') => void }) {
+function StatusToggle({ status, onChange }: { status: 'ACTIVE' | 'INACTIVE'; onChange: (s: 'ACTIVE' | 'INACTIVE') => void }) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -23,12 +23,12 @@ function StatusToggle({ status, onChange }: { status: 'active' | 'inactive'; onC
         onClick={() => setOpen(!open)}
         className={clsx(
           'flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium transition-colors',
-          status === 'active'
+          status?.toUpperCase() === 'ACTIVE'
             ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
             : 'bg-gray-50 text-gray-700 border border-gray-200',
         )}
       >
-        {status === 'active' ? 'Active' : 'Inactive'}
+        {status?.toUpperCase() === 'ACTIVE' ? 'Active' : 'Inactive'}
         <ChevronDown size={12} />
       </button>
       {open && (
@@ -37,7 +37,7 @@ function StatusToggle({ status, onChange }: { status: 'active' | 'inactive'; onC
           <div className="absolute top-full left-0 mt-1 w-32 bg-white border border-gray-200 rounded shadow-lg z-20 overflow-hidden">
             <button
               onClick={() => {
-                onChange('active')
+                onChange('ACTIVE')
                 setOpen(false)
               }}
               className="block w-full text-left px-3 py-2 text-xs hover:bg-emerald-50 text-gray-700"
@@ -46,7 +46,7 @@ function StatusToggle({ status, onChange }: { status: 'active' | 'inactive'; onC
             </button>
             <button
               onClick={() => {
-                onChange('inactive')
+                onChange('INACTIVE')
                 setOpen(false)
               }}
               className="block w-full text-left px-3 py-2 text-xs hover:bg-gray-50 text-gray-700 border-t border-gray-100"
@@ -104,7 +104,7 @@ export default function VendorTable({ vendors, tab, onDelete, onRestore, onStatu
               {/* Vendor Name */}
               <td className="py-3 pr-6 pl-2">
                 <div className="flex items-center gap-2.5">
-                  <InitialsAvatar name={vendor.companyName || vendor.name} />
+                  <InitialsAvatar name={vendor.companyName || vendor.name} imageUrl={vendor.clientLogo} />
                   <div>
                     <p className="font-medium text-gray-900 leading-tight">{vendor.companyName || vendor.name}</p>
                     {vendor.companyName && vendor.name && (
@@ -169,7 +169,7 @@ export default function VendorTable({ vendors, tab, onDelete, onRestore, onStatu
 
               {/* Actions */}
               <td className="py-3 pr-4">
-                <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex items-center justify-end gap-1">
                   {tab === 'inactive' ? (
                     <button
                       onClick={() => onRestore(vendor.id)}

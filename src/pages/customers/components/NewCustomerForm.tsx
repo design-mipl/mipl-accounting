@@ -80,8 +80,8 @@ const STATES_BY_COUNTRY: { [key: string]: string[] } = {
   ],
 }
 
-const NewCustomerForm = forwardRef<NewCustomerFormRef, { onSave?: (customer: Customer) => void; onClose?: () => void; initialCustomer?: Customer | null }>(
-  function NewCustomerForm({ onSave, onClose, initialCustomer }, ref) {
+const NewCustomerForm = forwardRef<NewCustomerFormRef, { onSave?: (customer: Customer, logoFile?: File, newDocs?: any[], deletedDocIds?: string[]) => void; onClose?: () => void; initialCustomer?: Customer | null; open?: boolean }>(
+  function NewCustomerForm({ onSave, onClose, initialCustomer, open }, ref) {
   const [tab, setTab] = useState<Tab>('basic')
   const [form, setForm] = useState<FormData>({
     companyName: '',
@@ -109,34 +109,88 @@ const NewCustomerForm = forwardRef<NewCustomerFormRef, { onSave?: (customer: Cus
   const [docTypeDropdown, setDocTypeDropdown] = useState(false)
   const [newDocType, setNewDocType] = useState('')
   const [editingDocId, setEditingDocId] = useState<string | null>(null)
+  const [deletedDocIds, setDeletedDocIds] = useState<string[]>([])
 
   useEffect(() => {
-    if (initialCustomer) {
-      setForm({
-        companyName: initialCustomer.companyName,
-        contactPerson: initialCustomer.ownerName || '',
-        phone: initialCustomer.phones?.[0] || '',
-        email: initialCustomer.emails?.[0] || '',
-        ccEmails: initialCustomer.emails?.slice(1) || [],
-        website: initialCustomer.website || '',
-        gstinApplicable: initialCustomer.gstApplicable,
-        gstin: initialCustomer.gstNumber,
-        gstinName: '',
-        pan: initialCustomer.panNumber || '',
-        panName: '',
-        tdsApplicable: initialCustomer.tdsApplicable,
-        tdsPercentage: initialCustomer.tdsNumber || '',
-        address1: initialCustomer.addressLine1 || '',
-        address2: initialCustomer.addressLine2 || '',
-        city: initialCustomer.city || '',
-        state: initialCustomer.state || '',
-        country: initialCustomer.country || 'India',
-        pincode: initialCustomer.pincode || '',
-        status: (initialCustomer.status?.toLowerCase() as 'active' | 'inactive') || 'active',
-        documents: [],
-      })
+    if (open) {
+      setDeletedDocIds([])
+      if (initialCustomer) {
+        setForm({
+          logoPreview: initialCustomer.clientLogo || undefined,
+          companyName: initialCustomer.companyName,
+          contactPerson: initialCustomer.contactPerson || '',
+          phone: initialCustomer.phoneNumber || '',
+          email: initialCustomer.email || '',
+          ccEmails: initialCustomer.ccEmails || [],
+          website: '',
+          gstinApplicable: initialCustomer.gstApplicable,
+          gstin: initialCustomer.gstinNumber || '',
+          gstinName: initialCustomer.verifiedGstinName || '',
+          pan: initialCustomer.panNumber || '',
+          panName: '',
+          tdsApplicable: initialCustomer.tdsApplicable,
+          tdsPercentage: initialCustomer.tdsPercentage ? String(initialCustomer.tdsPercentage) : '',
+          address1: initialCustomer.addressLine1 || '',
+          address2: initialCustomer.addressLine2 || '',
+          city: initialCustomer.city || '',
+          state: initialCustomer.state || '',
+          country: initialCustomer.country || 'India',
+          pincode: initialCustomer.pincode || '',
+          status: (initialCustomer.status?.toLowerCase() as 'active' | 'inactive') || 'active',
+          documents: [],
+        })
+
+        // Fetch documents
+        const token = sessionStorage.getItem('token')
+        fetch(`/api/customers/${initialCustomer.id}/documents`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        })
+          .then(res => res.json())
+          .then(resData => {
+            if (resData.success && resData.data) {
+              const loadedDocs: Document[] = []
+              Object.entries(resData.data).forEach(([type, docs]) => {
+                const anyDocs = docs as any[]
+                const latestDoc = anyDocs.find(d => d.isLatest) || anyDocs[0]
+                if (latestDoc) {
+                  loadedDocs.push({
+                    id: latestDoc.id,
+                    type: latestDoc.documentType,
+                    fileName: latestDoc.originalFileName,
+                  })
+                }
+              })
+              setForm(prev => ({ ...prev, documents: loadedDocs }))
+            }
+          })
+          .catch(err => console.error('Failed to load customer documents:', err))
+      } else {
+        setForm({
+          companyName: '',
+          contactPerson: '',
+          phone: '',
+          email: '',
+          ccEmails: [],
+          website: '',
+          gstinApplicable: false,
+          gstin: '',
+          gstinName: '',
+          pan: '',
+          panName: '',
+          tdsApplicable: false,
+          tdsPercentage: '',
+          address1: '',
+          address2: '',
+          city: '',
+          state: '',
+          country: 'India',
+          pincode: '',
+          status: 'active',
+          documents: [],
+        })
+      }
     }
-  }, [initialCustomer])
+  }, [initialCustomer, open])
 
   function updateForm<K extends keyof FormData>(key: K, value: FormData[K]) {
     setForm(prev => ({ ...prev, [key]: value }))
@@ -194,6 +248,10 @@ const NewCustomerForm = forwardRef<NewCustomerFormRef, { onSave?: (customer: Cus
   }
 
   function removeDocument(id: string) {
+    const docToRemove = form.documents.find(d => d.id === id)
+    if (docToRemove && !docToRemove.file) {
+      setDeletedDocIds(prev => [...prev, id])
+    }
     updateForm('documents', form.documents.filter(d => d.id !== id))
   }
 
@@ -202,13 +260,14 @@ const NewCustomerForm = forwardRef<NewCustomerFormRef, { onSave?: (customer: Cus
       const customer: Customer = {
         id: initialCustomer?.id || Math.random().toString(36).slice(2),
         companyName: form.companyName,
-        ownerName: form.contactPerson,
-        phones: form.phone.trim() ? [form.phone] : [],
-        emails: [form.email, ...form.ccEmails].filter(e => e.trim()),
-        website: form.website,
-        gstNumber: form.gstin,
+        contactPerson: form.contactPerson,
+        phoneNumber: form.phone.trim(),
+        email: form.email,
+        ccEmails: form.ccEmails.filter(e => e.trim()),
+        gstinNumber: form.gstin,
+        verifiedGstinName: form.gstinName,
         gstApplicable: form.gstinApplicable,
-        tdsNumber: form.tdsPercentage,
+        tdsPercentage: form.tdsPercentage ? parseFloat(form.tdsPercentage) : undefined,
         tdsApplicable: form.tdsApplicable,
         panNumber: form.pan,
         addressLine1: form.address1,
@@ -217,39 +276,14 @@ const NewCustomerForm = forwardRef<NewCustomerFormRef, { onSave?: (customer: Cus
         state: form.state,
         pincode: form.pincode,
         country: form.country,
-        status: form.status === 'active' ? 'Active' : 'Inactive',
-        contactPersons: initialCustomer?.contactPersons || [],
-        notes: initialCustomer?.notes || '',
+        status: form.status === 'active' ? 'ACTIVE' : 'INACTIVE',
         createdAt: initialCustomer?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         deletedAt: initialCustomer?.deletedAt,
       }
-      onSave(customer)
-      setForm({
-        companyName: '',
-        contactPerson: '',
-        phone: '',
-        email: '',
-        ccEmails: [],
-        website: '',
-        gstinApplicable: false,
-        gstin: '',
-        gstinName: '',
-        pan: '',
-        panName: '',
-        tdsApplicable: false,
-        tdsPercentage: '',
-        address1: '',
-        address2: '',
-        city: '',
-        state: '',
-        country: 'India',
-        pincode: '',
-        status: 'active',
-        documents: [],
-      })
-      setTab('basic')
-      onClose?.()
+      const logoFile = form.logoFile
+      const newDocs = form.documents.filter(d => d.file)
+      onSave(customer, logoFile, newDocs, deletedDocIds)
     }
   }
 
@@ -584,7 +618,7 @@ const NewCustomerForm = forwardRef<NewCustomerFormRef, { onSave?: (customer: Cus
                             {doc.fileName && <p className="text-xs text-gray-500 mt-1">{doc.fileName}</p>}
                           </div>
                           <div className="flex items-center gap-2">
-                            {doc.file && <Check size={16} className="text-emerald-500 shrink-0" />}
+                            {(doc.file || doc.fileName) && <Check size={16} className="text-emerald-500 shrink-0" />}
                             <button onClick={() => startEditDoc(doc.id)} title="Edit"
                               className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors">
                               <Pencil size={14} />
@@ -595,7 +629,7 @@ const NewCustomerForm = forwardRef<NewCustomerFormRef, { onSave?: (customer: Cus
                             </button>
                           </div>
                         </div>
-                        {!doc.file ? (
+                        {!doc.file && !doc.fileName ? (
                           <label className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-indigo-400 hover:bg-indigo-50 cursor-pointer transition-colors">
                             <Upload size={14} className="text-gray-400" />
                             <span className="text-xs text-gray-600 font-medium">Upload file</span>

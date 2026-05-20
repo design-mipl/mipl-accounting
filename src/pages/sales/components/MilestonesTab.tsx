@@ -1,11 +1,13 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Plus, Trash2, Save, AlertTriangle, FileText } from 'lucide-react'
 import clsx from 'clsx'
-import type { Project, Milestone, PIStatus, TIStatus, MilestoneStatus, PaymentStatusSales } from '../../../types/sales'
+import type { Project, Milestone, PIStatus, TIStatus, MilestoneStatus, PaymentStatusSales, ProjectType, ProformaInvoice } from '../../../types/sales'
 import { calcMilestone } from '../../../types/sales'
 import { fmtINR } from '../../../utils/currency'
 import { useSales, newId } from '../../../contexts/SalesContext'
 import { StatusBadge, piTone, tiTone, paymentTone, milestoneStatusTone } from './StatusBadge'
+import { PIFormDrawer } from './PIFormDrawer'
+import { TIFormDrawer } from './TIFormDrawer'
 
 type Row = {
   id: string
@@ -39,12 +41,25 @@ function toRow(m: Milestone, amountReceived = 0): Row {
   }
 }
 
+function generatePiNumber(existingPis: ProformaInvoice[]): string {
+  const today = new Date()
+  const month = today.getMonth() + 1
+  const year = today.getFullYear()
+  const fy = month >= 4 ? `${year % 100}-${(year + 1) % 100}` : `${(year - 1) % 100}-${year % 100}`
+  const count = existingPis.filter(pi => pi.piNumber.includes(fy)).length + 1
+  return `PI/${fy}/${String(count).padStart(3, '0')}`
+}
+
 export function MilestonesTab({ project }: { project: Project }) {
-  const { milestones, setMilestonesForProject, pis } = useSales()
+  const { milestones, setMilestonesForProject, pis, tis } = useSales()
   const projectMilestones = milestones.filter(m => m.projectId === project.id).sort((a, b) => a.number - b.number)
 
   const [rows, setRows] = useState<Row[]>([])
   const [dirty, setDirty] = useState(false)
+
+  // PI / TI drawer state
+  const [piPrefill, setPiPrefill] = useState<any | null>(null)
+  const [tiPrefill, setTiPrefill] = useState<ProformaInvoice | null>(null)
 
   useEffect(() => {
     setRows(projectMilestones.map(m => {
@@ -71,10 +86,10 @@ export function MilestonesTab({ project }: { project: Project }) {
         total: nextNum,
         name: `Milestone ${nextNum}`,
         percentage: '',
-        piStatus: 'Not Raised',
-        tiStatus: 'Not Created',
-        paymentStatus: 'Pending',
-        milestoneStatus: 'Not Started',
+        piStatus: 'Not Raised' as PIStatus,
+        tiStatus: 'Not Created' as TIStatus,
+        paymentStatus: 'Pending' as PaymentStatusSales,
+        milestoneStatus: 'Not Started' as MilestoneStatus,
         amountReceived: 0,
       },
     ])
@@ -105,6 +120,54 @@ export function MilestonesTab({ project }: { project: Project }) {
     }))
     setMilestonesForProject(project.id, toSave)
     setDirty(false)
+  }
+
+  function openPIForMilestone(r: Row) {
+    const c = calcMilestone(project.totalValue, parseFloat(r.percentage) || 0, project.gstPercent, project.tdsPercent)
+    setPiPrefill({
+      clientId: project.customerId,
+      projectId: project.id,
+      milestoneId: r.id,
+      baseAmount: String(c.baseAmount),
+      gstPercent: String(project.gstPercent),
+      tdsPercent: String(project.tdsPercent),
+      projectType: project.projectType as ProjectType,
+      piNumber: generatePiNumber(pis),
+    })
+  }
+
+  function openTIForMilestone(r: Row) {
+    // Find the PI linked to this milestone to prefill TI from it
+    const pi = pis.find(p => p.milestoneId === r.id)
+    if (pi) {
+      setTiPrefill(pi)
+    } else {
+      // Create a synthetic PI-like object with milestone data for TI prefill
+      const c = calcMilestone(project.totalValue, parseFloat(r.percentage) || 0, project.gstPercent, project.tdsPercent)
+      setTiPrefill({
+        id: '',
+        piNumber: '',
+        piDate: new Date().toISOString().slice(0, 10),
+        clientId: project.customerId,
+        clientName: project.customerName,
+        projectType: project.projectType,
+        projectId: project.id,
+        projectName: project.name,
+        milestoneId: r.id,
+        milestoneLabel: `Milestone ${r.number} of ${r.total} – ${r.name}`,
+        baseAmount: c.baseAmount,
+        gstPercent: project.gstPercent,
+        gstAmount: c.gstAmount,
+        grossAmount: c.grossAmount,
+        amountReceived: 0,
+        tdsPercent: project.tdsPercent,
+        tdsAmount: c.tdsAmount,
+        outstandingBeyondTds: c.outstandingBeyondTds,
+        status: 'Draft',
+        piSent: false,
+        createdAt: new Date().toISOString(),
+      } as ProformaInvoice)
+    }
   }
 
   const totalPct = useMemo(() => rows.reduce((s, r) => s + (parseFloat(r.percentage) || 0), 0), [rows])
@@ -251,21 +314,21 @@ export function MilestonesTab({ project }: { project: Project }) {
 
       {/* Per-milestone action chips */}
       <div className="space-y-2">
-        {rows.map((r, idx) => (
+        {rows.map((r) => (
           <div key={r.id} className="flex items-center gap-2 px-3 py-2 border border-gray-100 rounded-lg bg-gray-50/50">
             <span className="text-[11px] text-gray-500 font-medium min-w-[120px]">{r.name}</span>
             <StatusBadge label={r.milestoneStatus} tone={milestoneStatusTone(r.milestoneStatus)} size="xs" />
             <div className="ml-auto flex items-center gap-1.5 flex-wrap">
               <button
-                onClick={() => update(idx, { piStatus: 'Sent' })}
+                onClick={() => openPIForMilestone(r)}
                 className="inline-flex items-center gap-1 px-2 py-1 text-[10px] border border-gray-200 rounded bg-white hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700"
               >
                 <FileText size={10} />
                 Create PI
               </button>
               <button
-                onClick={() => update(idx, { tiStatus: 'Draft' })}
-                className="inline-flex items-center gap-1 px-2 py-1 text-[10px] border border-gray-200 rounded bg-white hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700"
+                onClick={() => openTIForMilestone(r)}
+                className="inline-flex items-center gap-1 px-2 py-1 text-[10px] border border-gray-200 rounded bg-white hover:bg-violet-50 hover:border-violet-300 hover:text-violet-700"
               >
                 <FileText size={10} />
                 Create Tax Invoice
@@ -274,6 +337,20 @@ export function MilestonesTab({ project }: { project: Project }) {
           </div>
         ))}
       </div>
+
+      {/* PI Form Drawer */}
+      <PIFormDrawer
+        open={!!piPrefill}
+        onClose={() => setPiPrefill(null)}
+        prefill={piPrefill || undefined}
+      />
+
+      {/* TI Form Drawer */}
+      <TIFormDrawer
+        open={!!tiPrefill}
+        onClose={() => setTiPrefill(null)}
+        fromPI={tiPrefill}
+      />
     </div>
   )
 }

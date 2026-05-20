@@ -1,7 +1,33 @@
-import { X, Phone, Mail, Building2, MapPin, DollarSign, Landmark } from 'lucide-react'
+import { X, Phone, Mail, Building2, Landmark, FileText, Download } from 'lucide-react'
+import { useState, useEffect } from 'react'
 import type { Vendor } from '../../../types/vendor'
 
 export default function VendorDetailModal({ vendor, onClose }: { vendor: Vendor | null; onClose: () => void }) {
+  const [documents, setDocuments] = useState<any>({})
+  const [loadingDocs, setLoadingDocs] = useState(false)
+
+  useEffect(() => {
+    if (vendor?.id) {
+      setLoadingDocs(true)
+      const token = sessionStorage.getItem('token')
+      fetch(`/api/vendors/${vendor.id}/documents`, {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        }
+      })
+        .then(res => res.json())
+        .then(res => {
+          if (res.success && res.data) {
+            setDocuments(res.data)
+          }
+        })
+        .catch(err => console.error('Error fetching docs:', err))
+        .finally(() => setLoadingDocs(false))
+    } else {
+      setDocuments({})
+    }
+  }, [vendor])
+
   if (!vendor) return null
 
   return (
@@ -11,9 +37,17 @@ export default function VendorDetailModal({ vendor, onClose }: { vendor: Vendor 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-indigo-50 rounded-lg flex items-center justify-center">
-              <Building2 size={15} className="text-indigo-600" />
-            </div>
+            {vendor.clientLogo ? (
+              <img
+                src={vendor.clientLogo}
+                alt="Logo"
+                className="w-10 h-10 object-contain rounded-lg border border-gray-200 bg-white"
+              />
+            ) : (
+              <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center">
+                <Building2 size={18} className="text-indigo-600" />
+              </div>
+            )}
             <div>
               <h2 className="text-sm font-semibold text-gray-900">Vendor Details</h2>
               <p className="text-xs text-gray-400">{vendor.companyName || vendor.name}</p>
@@ -169,17 +203,57 @@ export default function VendorDetailModal({ vendor, onClose }: { vendor: Vendor 
             </div>
           </div>
 
+          {/* Documents */}
+          <div>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Documents</h3>
+            {loadingDocs ? (
+              <p className="text-sm text-gray-400">Loading documents...</p>
+            ) : Object.keys(documents).length === 0 ? (
+              <p className="text-sm text-gray-400">No documents uploaded</p>
+            ) : (
+              <div className="space-y-2.5">
+                {Object.entries(documents).map(([type, docs]: [string, any]) => {
+                  const latestDoc = docs.find((d: any) => d.isLatest) || docs[0]
+                  if (!latestDoc) return null
+                  return (
+                    <div key={type} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-200">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold text-gray-800">{type}</p>
+                        <p className="text-xs text-gray-500 truncate" title={latestDoc.originalFileName}>
+                          {latestDoc.originalFileName}
+                        </p>
+                        <p className="text-[10px] text-gray-400">
+                          Version {latestDoc.versionNumber} • {(latestDoc.fileSize / 1024).toFixed(1)} KB
+                        </p>
+                      </div>
+                      <a
+                        href={latestDoc.storedFileName}
+                        download={latestDoc.originalFileName}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="ml-3 p-1.5 bg-white hover:bg-gray-100 text-indigo-600 border border-gray-200 rounded-lg transition-colors shrink-0 flex items-center justify-center"
+                        title="Download Document"
+                      >
+                        <Download size={14} />
+                      </a>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
           {/* Status */}
           <div>
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Status</h3>
             <span
               className={`inline-flex items-center px-2.5 py-1 rounded text-xs font-medium ${
-                vendor.status === 'active'
+                vendor.status?.toUpperCase() === 'ACTIVE'
                   ? 'bg-emerald-50 text-emerald-700'
                   : 'bg-gray-50 text-gray-600'
               }`}
             >
-              {vendor.status === 'active' ? 'Active' : 'Inactive'}
+              {vendor.status?.toUpperCase() === 'ACTIVE' ? 'Active' : 'Inactive'}
             </span>
           </div>
 
@@ -191,7 +265,7 @@ export default function VendorDetailModal({ vendor, onClose }: { vendor: Vendor 
             </div>
           )}
 
-          {/* Updated Date */}
+          {/* Last Updated */}
           {vendor.updatedAt && (
             <div>
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Last Updated</h3>

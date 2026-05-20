@@ -3,11 +3,11 @@ import { Plus, Search, Eye, Pencil, Trash2, FileText } from 'lucide-react'
 import clsx from 'clsx'
 import type { Project, ProjectType, ProformaInvoice } from '../../types/sales'
 import { PROJECT_TYPES, calcMilestone } from '../../types/sales'
+import { useCustomers } from '../../contexts/CustomerContext'
 import { useSales } from '../../contexts/SalesContext'
-import { SALES_CUSTOMERS } from '../../data/sales'
 import { fmtINR } from '../../utils/currency'
 import { StatusBadge, projectStatusTone } from './components/StatusBadge'
-import { ProjectFormModal } from './components/ProjectFormModal'
+import { ProjectFormDrawer } from './components/ProjectFormDrawer'
 import { ProjectDetailDrawer } from './components/ProjectDetailDrawer'
 import { PIFormDrawer } from './components/PIFormDrawer'
 
@@ -53,7 +53,15 @@ type PIFormPrefill = {
 
 export default function ProjectsPage() {
   const { projects, milestones, pis, deleteProject } = useSales()
+  const { customers } = useCustomers()
   const [tab, setTab] = useState<Tab>('upcoming')
+
+  const SALES_CUSTOMERS = useMemo(() => {
+    return customers.map(c => ({
+      id: c.id,
+      name: c.companyName,
+    }))
+  }, [customers])
 
   const [search, setSearch] = useState('')
   const [fCustomer, setFCustomer] = useState('')
@@ -68,6 +76,9 @@ export default function ProjectsPage() {
   const upcomingRows: UpcomingRow[] = useMemo(() => {
     const rows: UpcomingRow[] = []
     for (const p of projects) {
+      const customer = customers.find(c => c.id === p.customerId)
+      const customerName = customer ? customer.companyName : p.customerName
+
       const hasPI = (mId?: string) =>
         mId
           ? pis.some(pi => pi.milestoneId === mId)
@@ -82,7 +93,7 @@ export default function ProjectsPage() {
           rows.push({
             key: `m-${m.id}`,
             customerId: p.customerId,
-            customerName: p.customerName,
+            customerName,
             projectId: p.id,
             projectType: p.projectType,
             stage: `Milestone ${m.number} of ${m.total} – ${m.name}`,
@@ -100,7 +111,7 @@ export default function ProjectsPage() {
         rows.push({
           key: `amc-${p.id}`,
           customerId: p.customerId,
-          customerName: p.customerName,
+          customerName,
           projectId: p.id,
           projectType: p.projectType,
           stage: `AMC – ${p.amcFrequency ?? 'Monthly'}`,
@@ -116,7 +127,7 @@ export default function ProjectsPage() {
         rows.push({
           key: `one-${p.id}`,
           customerId: p.customerId,
-          customerName: p.customerName,
+          customerName,
           projectId: p.id,
           projectType: p.projectType,
           stage: p.billingType,
@@ -147,13 +158,15 @@ export default function ProjectsPage() {
   const filteredProjects = useMemo(() => {
     const q = search.toLowerCase().trim()
     return projects.filter(p => {
-      if (q && !p.customerName.toLowerCase().includes(q)
+      const customer = customers.find(c => c.id === p.customerId)
+      const customerName = customer ? customer.companyName : p.customerName
+      if (q && !customerName.toLowerCase().includes(q)
             && !p.projectType.toLowerCase().includes(q)) return false
       if (fCustomer && p.customerId !== fCustomer) return false
       if (fType && p.projectType !== fType) return false
       return true
     })
-  }, [projects, search, fCustomer, fType])
+  }, [projects, search, fCustomer, fType, customers])
 
   const totalUpcomingValue = filteredUpcoming
     .filter(r => r.status === 'Upcoming')
@@ -248,7 +261,7 @@ export default function ProjectsPage() {
                       <StatusBadge label={r.status} tone="blue" size="xs" />
                     </td>
                     <td className="py-2.5 px-3 text-right">
-                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center justify-end gap-1">
                         <button onClick={() => openProjectFor(r.projectId)} className="inline-flex items-center gap-1 px-2 py-1 text-[11px] border border-gray-200 rounded-md hover:bg-indigo-50 hover:text-indigo-700 text-gray-500">
                           <Eye size={11} /> View Project
                         </button>
@@ -292,23 +305,27 @@ export default function ProjectsPage() {
                 {filteredProjects.length === 0 && (
                   <tr><td colSpan={7} className="py-12 text-center text-xs text-gray-400">No projects.</td></tr>
                 )}
-                {filteredProjects.map(p => (
-                  <tr key={p.id} className="group border-b border-gray-50 hover:bg-gray-50/60 text-xs">
-                    <td className="py-2.5 px-3 font-medium text-gray-900">{p.name}</td>
-                    <td className="py-2.5 px-3 text-gray-600">{p.customerName}</td>
-                    <td className="py-2.5 px-3"><StatusBadge label={p.projectType} tone="gray" size="xs" /></td>
-                    <td className="py-2.5 px-3 text-gray-500">{p.billingType}</td>
-                    <td className="py-2.5 px-3 text-right font-medium">{fmtINR(p.totalValue)}</td>
-                    <td className="py-2.5 px-3"><StatusBadge label={p.projectStatus} tone={projectStatusTone(p.projectStatus)} size="xs" /></td>
-                    <td className="py-2.5 px-3 text-right">
-                      <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => setViewProject(p)} title="View / Manage" className="p-1.5 rounded hover:bg-indigo-50 text-gray-400 hover:text-indigo-600"><Eye size={13} /></button>
-                        <button onClick={() => { setEditProject(p); setFormOpen(true) }} title="Edit" className="p-1.5 rounded hover:bg-amber-50 text-gray-400 hover:text-amber-600"><Pencil size={13} /></button>
-                        <button onClick={() => { if (confirm(`Delete project "${p.name}"?`)) deleteProject(p.id) }} title="Delete" className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-600"><Trash2 size={13} /></button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {filteredProjects.map(p => {
+                  const customer = customers.find(c => c.id === p.customerId)
+                  const customerName = customer ? customer.companyName : p.customerName
+                  return (
+                    <tr key={p.id} className="group border-b border-gray-50 hover:bg-gray-50/60 text-xs">
+                      <td className="py-2.5 px-3 font-medium text-gray-900">{p.name}</td>
+                      <td className="py-2.5 px-3 text-gray-600">{customerName}</td>
+                      <td className="py-2.5 px-3"><StatusBadge label={p.projectType} tone="gray" size="xs" /></td>
+                      <td className="py-2.5 px-3 text-gray-500">{p.billingType}</td>
+                      <td className="py-2.5 px-3 text-right font-medium">{fmtINR(p.totalValue)}</td>
+                      <td className="py-2.5 px-3"><StatusBadge label={p.projectStatus} tone={projectStatusTone(p.projectStatus)} size="xs" /></td>
+                      <td className="py-2.5 px-3 text-right">
+                        <div className="flex items-center justify-end gap-0.5">
+                          <button onClick={() => setViewProject(p)} title="View / Manage" className="p-1.5 rounded hover:bg-indigo-50 text-gray-400 hover:text-indigo-600"><Eye size={13} /></button>
+                          <button onClick={() => { setEditProject(p); setFormOpen(true) }} title="Edit" className="p-1.5 rounded hover:bg-amber-50 text-gray-400 hover:text-amber-600"><Pencil size={13} /></button>
+                          <button onClick={() => { if (confirm(`Delete project "${p.name}"?`)) deleteProject(p.id) }} title="Delete" className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-600"><Trash2 size={13} /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -323,12 +340,12 @@ export default function ProjectsPage() {
         </div>
       </div>
 
-      <ProjectFormModal open={formOpen} onClose={() => { setFormOpen(false); setEditProject(null) }} />
+      <ProjectFormDrawer open={formOpen} onClose={() => { setFormOpen(false); setEditProject(null) }} initial={editProject} />
       <ProjectDetailDrawer project={viewProject} onClose={() => setViewProject(null)} />
       <PIFormDrawer
         open={!!piPrefill}
         onClose={() => setPiPrefill(null)}
-        prefill={piPrefill}
+        prefill={piPrefill || undefined}
       />
     </div>
   )

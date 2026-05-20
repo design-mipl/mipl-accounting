@@ -3,7 +3,7 @@ import { X, ChevronRight, ChevronLeft } from 'lucide-react'
 import clsx from 'clsx'
 import type { Project, Milestone, ProjectType, BillingType, ProjectStatus, AMCFrequency } from '../../../types/sales'
 import { PROJECT_TYPES, BILLING_TYPES, round2 } from '../../../types/sales'
-import { SALES_CUSTOMERS } from '../../../data/sales'
+import { useCustomers } from '../../../contexts/CustomerContext'
 import { useSales, newId } from '../../../contexts/SalesContext'
 import { fmtINR } from '../../../utils/currency'
 
@@ -59,12 +59,22 @@ export function ProjectFormModal({ open, onClose }: {
   onClose: () => void
 }) {
   const { upsertProject, setMilestonesForProject } = useSales()
+  const { customers } = useCustomers()
   const [step, setStep] = useState<Step>(1)
   const [form, setForm] = useState<FormData>(blankForm())
 
+  const SALES_CUSTOMERS = useMemo(() => {
+    return customers.map(c => ({
+      id: c.id,
+      name: c.companyName,
+      gstPercent: c.gstApplicable ? 18 : 0,
+      tdsPercent: c.tdsPercentage ?? 10
+    }))
+  }, [customers])
+
   const selectedCustomer = useMemo(
     () => SALES_CUSTOMERS.find(c => c.id === form.customerId),
-    [form.customerId]
+    [form.customerId, SALES_CUSTOMERS]
   )
 
   const totalPercentage = useMemo(
@@ -111,6 +121,7 @@ export function ProjectFormModal({ open, onClose }: {
     const projectId = newId()
     const project: Project = {
       id: projectId,
+      name: `${customer.name} ${form.projectType}`,
       customerId: form.customerId,
       customerName: customer.name,
       projectType: form.projectType,

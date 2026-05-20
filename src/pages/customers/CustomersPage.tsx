@@ -24,18 +24,20 @@ export default function CustomersPage() {
   const [actionsOpen, setActionsOpen] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const activeCustomers = useMemo(() => customers.filter(c => !c.deletedAt), [customers])
-  const deletedCustomers = useMemo(() => customers.filter(c => !!c.deletedAt), [customers])
+  const activeCustomers = useMemo(() => customers.filter(c => c.status === 'ACTIVE' && !c.deletedAt), [customers])
+  const deletedCustomers = useMemo(() => customers.filter(c => c.status === 'INACTIVE' || !!c.deletedAt), [customers])
 
   const filteredActive = useMemo(() => {
     const q = search.toLowerCase().trim()
     if (!q) return activeCustomers
     return activeCustomers.filter(c =>
-      c.ownerName.toLowerCase().includes(q) ||
+      c.contactPerson.toLowerCase().includes(q) ||
       c.companyName.toLowerCase().includes(q) ||
-      c.phones.some(p => p.includes(q)) ||
-      c.emails.some(e => e.toLowerCase().includes(q)),
+      (c.phoneNumber && c.phoneNumber.includes(q)) ||
+      (c.email && c.email.toLowerCase().includes(q)),
     )
   }, [activeCustomers, search])
 
@@ -43,7 +45,7 @@ export default function CustomersPage() {
     const q = search.toLowerCase().trim()
     if (!q) return deletedCustomers
     return deletedCustomers.filter(c =>
-      c.ownerName.toLowerCase().includes(q) ||
+      c.contactPerson.toLowerCase().includes(q) ||
       c.companyName.toLowerCase().includes(q),
     )
   }, [deletedCustomers, search])
@@ -56,18 +58,27 @@ export default function CustomersPage() {
     restoreCustomer(id)
   }
 
-  function handleStatusChange(id: string, status: 'Active' | 'Inactive') {
+  function handleStatusChange(id: string, status: 'ACTIVE' | 'INACTIVE') {
     updateCustomer(id, { status })
   }
 
-  function handleSaveCustomer(customer: Customer) {
-    if (editingCustomer) {
-      updateCustomer(editingCustomer.id, customer)
-      setEditingCustomer(null)
-    } else {
-      addCustomer(customer)
+  async function handleSaveCustomer(customer: Customer, logoFile?: File, newDocs?: any[], deletedDocIds?: string[]) {
+    try {
+      setSaving(true)
+      setError(null)
+      if (editingCustomer) {
+        await updateCustomer(editingCustomer.id, customer, logoFile, newDocs, deletedDocIds)
+        setEditingCustomer(null)
+      } else {
+        await addCustomer(customer, logoFile, newDocs)
+      }
+      setDrawerOpen(false)
+    } catch (err: any) {
+      console.error(err)
+      setError(err.message || 'Failed to save customer')
+    } finally {
+      setSaving(false)
     }
-    setDrawerOpen(false)
   }
 
   function handleEdit(customer: Customer) {
@@ -78,6 +89,7 @@ export default function CustomersPage() {
   function closeDrawer() {
     setDrawerOpen(false)
     setEditingCustomer(null)
+    setError(null)
   }
 
   const TABS: { key: Tab; label: string; count?: number }[] = [
@@ -196,7 +208,7 @@ export default function CustomersPage() {
         )}
       </div>
 
-      <NewCustomerDrawer open={drawerOpen} onClose={closeDrawer} onSave={handleSaveCustomer} initialCustomer={editingCustomer} />
+      <NewCustomerDrawer open={drawerOpen} onClose={closeDrawer} onSave={handleSaveCustomer} initialCustomer={editingCustomer} saving={saving} error={error} />
     </div>
   )
 }

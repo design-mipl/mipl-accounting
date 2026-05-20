@@ -9,12 +9,12 @@ type Props = {
   tab: 'all' | 'inactive'
   onDelete: (id: string) => void
   onRestore: (id: string) => void
-  onStatusChange?: (id: string, status: 'Active' | 'Inactive') => void
+  onStatusChange?: (id: string, status: 'ACTIVE' | 'INACTIVE') => void
   onEdit?: (customer: Customer) => void
   onView?: (customer: Customer) => void
 }
 
-function StatusToggle({ status, onChange }: { status: 'Active' | 'Inactive'; onChange: (s: 'Active' | 'Inactive') => void }) {
+function StatusToggle({ status, onChange }: { status: 'ACTIVE' | 'INACTIVE'; onChange: (s: 'ACTIVE' | 'INACTIVE') => void }) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -23,12 +23,12 @@ function StatusToggle({ status, onChange }: { status: 'Active' | 'Inactive'; onC
         onClick={() => setOpen(!open)}
         className={clsx(
           'flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium transition-colors',
-          status === 'Active'
+          status === 'ACTIVE'
             ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
             : 'bg-gray-50 text-gray-700 border border-gray-200',
         )}
       >
-        {status === 'Active' ? 'Active' : 'Inactive'}
+        {status === 'ACTIVE' ? 'Active' : 'Inactive'}
         <ChevronDown size={12} />
       </button>
       {open && (
@@ -37,7 +37,7 @@ function StatusToggle({ status, onChange }: { status: 'Active' | 'Inactive'; onC
           <div className="absolute top-full left-0 mt-1 w-32 bg-white border border-gray-200 rounded shadow-lg z-20 overflow-hidden">
             <button
               onClick={() => {
-                onChange('Active')
+                onChange('ACTIVE')
                 setOpen(false)
               }}
               className="block w-full text-left px-3 py-2 text-xs hover:bg-emerald-50 text-gray-700"
@@ -46,7 +46,7 @@ function StatusToggle({ status, onChange }: { status: 'Active' | 'Inactive'; onC
             </button>
             <button
               onClick={() => {
-                onChange('Inactive')
+                onChange('INACTIVE')
                 setOpen(false)
               }}
               className="block w-full text-left px-3 py-2 text-xs hover:bg-gray-50 text-gray-700 border-t border-gray-100"
@@ -110,10 +110,9 @@ export default function CustomerTable({ customers, tab, onDelete, onRestore, onS
               {/* Company Name */}
               <td className="py-3 pr-6 pl-2">
                 <div className="flex items-center gap-2.5">
-                  <InitialsAvatar name={customer.companyName} />
+                  <InitialsAvatar name={customer.companyName} imageUrl={customer.clientLogo} />
                   <div>
                     <p className="font-medium text-gray-900 leading-tight">{customer.companyName}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{customer.website || '—'}</p>
                   </div>
                 </div>
               </td>
@@ -121,29 +120,26 @@ export default function CustomerTable({ customers, tab, onDelete, onRestore, onS
               {/* Owner */}
               <td className="py-3 pr-6">
                 <div className="flex flex-col gap-0.5">
-                  <p className="text-xs font-medium text-gray-700">{customer.ownerName}</p>
-                  {customer.contactPersons && customer.contactPersons.length > 0 && (
-                    <p className="text-xs text-gray-400">{customer.contactPersons.length} contact{customer.contactPersons.length !== 1 ? 's' : ''}</p>
-                  )}
+                  <p className="text-xs font-medium text-gray-700">{customer.contactPerson}</p>
                 </div>
               </td>
 
               {/* Contact Info */}
               <td className="py-3 pr-6">
                 <div className="flex flex-col gap-1">
-                  {customer.phones && customer.phones.length > 0 && (
+                  {customer.phoneNumber && (
                     <div className="flex items-center gap-1.5 text-xs text-gray-600">
                       <Phone size={11} className="text-gray-400 shrink-0" />
-                      {customer.phones[0]}
+                      {customer.phoneNumber}
                     </div>
                   )}
-                  {customer.emails && customer.emails.length > 0 && (
+                  {customer.email && (
                     <div className="flex items-center gap-1.5 text-xs text-gray-500">
                       <Mail size={11} className="text-gray-400 shrink-0" />
-                      <span className="truncate max-w-[150px]">{customer.emails[0]}</span>
+                      <span className="truncate max-w-[150px]">{customer.email}</span>
                     </div>
                   )}
-                  {(!customer.phones || customer.phones.length === 0) && (!customer.emails || customer.emails.length === 0) && (
+                  {(!customer.phoneNumber) && (!customer.email) && (
                     <span className="text-xs text-gray-300">—</span>
                   )}
                 </div>
@@ -158,9 +154,9 @@ export default function CustomerTable({ customers, tab, onDelete, onRestore, onS
 
               {/* GST # */}
               <td className="py-3 pr-4">
-                {customer.gstNumber ? (
+                {customer.gstinNumber ? (
                   <p className="text-xs font-mono text-gray-600 bg-gray-50 border border-gray-100 rounded px-2 py-1 inline-block w-fit">
-                    {customer.gstNumber.substring(0, 10)}...
+                    {customer.gstinNumber.substring(0, 10)}...
                   </p>
                 ) : (
                   <span className="text-xs text-gray-300">—</span>
@@ -183,7 +179,7 @@ export default function CustomerTable({ customers, tab, onDelete, onRestore, onS
 
               {/* Actions */}
               <td className="py-3 pr-4">
-                <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex items-center justify-end gap-1">
                   {tab === 'inactive' ? (
                     <button
                       onClick={() => onRestore(customer.id)}

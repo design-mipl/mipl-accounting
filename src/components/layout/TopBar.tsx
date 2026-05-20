@@ -1,8 +1,17 @@
-import { Search, Bell, HelpCircle, Settings, User } from 'lucide-react'
+import { Search, Bell, HelpCircle, Settings, User, LogOut } from 'lucide-react'
 import { useState } from 'react'
+import { useAuth } from '../../contexts/AuthContext'
+import { useNavigate } from 'react-router-dom'
 
 export default function TopBar() {
   const [search, setSearch] = useState('')
+  const { logout, user } = useAuth()
+  const navigate = useNavigate()
+
+  const handleLogout = () => {
+    logout()
+    navigate('/login')
+  }
 
   return (
     <header className="h-12 bg-white border-b border-gray-200 flex items-center px-4 gap-3 shrink-0">
@@ -27,8 +36,19 @@ export default function TopBar() {
         <button className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors">
           <Settings size={17} />
         </button>
-        <div className="w-7 h-7 ml-1 rounded-full bg-indigo-600 flex items-center justify-center cursor-pointer">
-          <User size={14} className="text-white" />
+        
+        <div className="flex items-center gap-2 ml-2 pl-2 border-l border-gray-200">
+          <div className="w-7 h-7 rounded-full bg-indigo-600 flex items-center justify-center">
+            <User size={14} className="text-white" />
+          </div>
+          {user && <span className="text-sm font-medium text-gray-700 hidden sm:block">{user.email}</span>}
+          <button 
+            onClick={handleLogout}
+            className="p-1.5 ml-1 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors"
+            title="Log out"
+          >
+            <LogOut size={16} />
+          </button>
         </div>
       </div>
     </header>

@@ -2,8 +2,8 @@ import { useState, useMemo } from 'react'
 import { Plus, Search, Pencil, Trash2, ReceiptText, Eye, FileText } from 'lucide-react'
 import clsx from 'clsx'
 import type { ProformaInvoice } from '../../types/sales'
+import { useCustomers } from '../../contexts/CustomerContext'
 import { useSales } from '../../contexts/SalesContext'
-import { SALES_CUSTOMERS } from '../../data/sales'
 import { fmtINR } from '../../utils/currency'
 import { StatusBadge, piTone } from './components/StatusBadge'
 import { PIFormDrawer } from './components/PIFormDrawer'
@@ -17,6 +17,10 @@ function getStatusFromPayment(received: number, expectedReceipt: number): 'Pendi
 
 export default function ProformaInvoicesPage() {
   const { pis, deletePI, upsertPI } = useSales()
+  const { customers } = useCustomers()
+  const SALES_CUSTOMERS = useMemo(() => {
+    return customers.map(c => ({ id: c.id, name: c.companyName }))
+  }, [customers])
   const [search, setSearch] = useState('')
   const [fClient, setFClient] = useState('')
   const [fStatus, setFStatus] = useState('')
@@ -27,14 +31,16 @@ export default function ProformaInvoicesPage() {
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim()
     return pis.filter(p => {
+      const customer = customers.find(c => c.id === p.clientId)
+      const clientName = customer ? customer.companyName : p.clientName
       if (q && !p.piNumber.toLowerCase().includes(q)
-            && !p.clientName.toLowerCase().includes(q)
+            && !clientName.toLowerCase().includes(q)
             && !(p.projectName ?? '').toLowerCase().includes(q)) return false
       if (fClient && p.clientId !== fClient) return false
       if (fStatus && getStatusFromPayment(p.amountReceived, p.grossAmount - p.tdsAmount) !== fStatus) return false
       return true
     })
-  }, [pis, search, fClient, fStatus])
+  }, [pis, search, fClient, fStatus, customers])
 
   function updateAmountReceived(pi: ProformaInvoice, newAmount: number) {
     const expectedReceipt = pi.grossAmount - pi.tdsAmount
@@ -98,11 +104,13 @@ export default function ProformaInvoicesPage() {
               {filtered.map(p => {
                 const expectedReceipt = p.grossAmount - p.tdsAmount
                 const status = getStatusFromPayment(p.amountReceived, expectedReceipt)
+                const customer = customers.find(c => c.id === p.clientId)
+                const clientName = customer ? customer.companyName : p.clientName
                 return (
                   <tr key={p.id} className="group border-b border-gray-50 hover:bg-gray-50/60 text-xs">
                     <td className="py-2.5 px-3 font-mono font-medium text-gray-900">{p.piNumber}</td>
                     <td className="py-2.5 px-3 text-gray-500">{p.piDate}</td>
-                    <td className="py-2.5 px-3 text-gray-700">{p.clientName}</td>
+                    <td className="py-2.5 px-3 text-gray-700">{clientName}</td>
                     <td className="py-2.5 px-3"><StatusBadge label={p.projectType || '—'} tone="gray" size="xs" /></td>
                     <td className="py-2.5 px-3 text-gray-500 text-[11px]">{p.milestoneLabel || '—'}</td>
                     <td className="py-2.5 px-3 text-right">{fmtINR(p.baseAmount)}</td>
@@ -120,9 +128,9 @@ export default function ProformaInvoicesPage() {
                     <td className={clsx('py-2.5 px-3 text-right font-medium', expectedReceipt - p.amountReceived > 0 ? 'text-red-600' : 'text-gray-300')}>
                       {expectedReceipt - p.amountReceived > 0 ? fmtINR(expectedReceipt - p.amountReceived) : '—'}
                     </td>
-                    <td className="py-2.5 px-3"><StatusBadge label={status} tone={status === 'Paid' ? 'green' : status === 'Shortfall' ? 'orange' : 'gray'} size="xs" /></td>
+                    <td className="py-2.5 px-3"><StatusBadge label={status} tone={status === 'Paid' ? 'green' : status === 'Shortfall' ? 'amber' : 'gray'} size="xs" /></td>
                     <td className="py-2.5 px-3 text-right">
-                      <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center justify-end gap-0.5">
                         <button onClick={() => { setEditPI(p); setFormOpen(true) }} title="Edit" className="p-1.5 rounded hover:bg-amber-50 text-gray-400 hover:text-amber-600"><Pencil size={13} /></button>
                         <button onClick={() => setTiPrefill(p)} title="Create Tax Invoice" className="p-1.5 rounded hover:bg-indigo-50 text-gray-400 hover:text-indigo-600"><ReceiptText size={13} /></button>
                         <button onClick={() => { if (confirm(`Delete PI ${p.piNumber}?`)) deletePI(p.id) }} title="Delete" className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-600"><Trash2 size={13} /></button>
@@ -140,7 +148,7 @@ export default function ProformaInvoicesPage() {
       <TIFormDrawer
         open={!!tiPrefill}
         onClose={() => setTiPrefill(null)}
-        fromPI={tiPrefill}
+        fromPI={tiPrefill || undefined}
       />
       <span className="hidden"><Eye size={1} /><FileText size={1} /></span>
     </div>

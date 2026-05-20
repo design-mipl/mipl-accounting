@@ -16,7 +16,7 @@ export default function CustomerDetailModal({ customer, onClose }: { customer: C
             </div>
             <div>
               <h2 className="text-sm font-semibold text-gray-900">Customer Details</h2>
-              <p className="text-xs text-gray-400">{customer.companyName || customer.name}</p>
+              <p className="text-xs text-gray-400">{customer.companyName || customer.contactPerson}</p>
             </div>
           </div>
           <button
@@ -39,7 +39,7 @@ export default function CustomerDetailModal({ customer, onClose }: { customer: C
               </div>
               <div>
                 <p className="text-xs text-gray-500">Contact Person</p>
-                <p className="text-sm font-medium text-gray-900">{customer.name}</p>
+                <p className="text-sm font-medium text-gray-900">{customer.contactPerson}</p>
               </div>
             </div>
           </div>
@@ -48,10 +48,10 @@ export default function CustomerDetailModal({ customer, onClose }: { customer: C
           <div>
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Contact Information</h3>
             <div className="space-y-2">
-              {customer.phone && (
+              {customer.phoneNumber && (
                 <div className="flex items-center gap-2">
                   <Phone size={14} className="text-gray-400" />
-                  <p className="text-sm text-gray-900">{customer.phone}</p>
+                  <p className="text-sm text-gray-900">{customer.phoneNumber}</p>
                 </div>
               )}
               {customer.email && (
@@ -67,28 +67,16 @@ export default function CustomerDetailModal({ customer, onClose }: { customer: C
           <div>
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Tax Information</h3>
             <div className="space-y-3">
-              {customer.gstin && (
+              {customer.gstinNumber && (
                 <div>
                   <p className="text-xs text-gray-500">GSTIN</p>
-                  <p className="text-sm font-mono text-gray-900 bg-gray-50 p-2 rounded border border-gray-200">{customer.gstin}</p>
+                  <p className="text-sm font-mono text-gray-900 bg-gray-50 p-2 rounded border border-gray-200">{customer.gstinNumber}</p>
                 </div>
               )}
-              {customer.gstinName && (
-                <div>
-                  <p className="text-xs text-gray-500">GSTIN Name</p>
-                  <p className="text-sm text-gray-900">{customer.gstinName}</p>
-                </div>
-              )}
-              {customer.pan && (
+              {customer.panNumber && (
                 <div>
                   <p className="text-xs text-gray-500">PAN</p>
-                  <p className="text-sm font-mono text-gray-900 bg-gray-50 p-2 rounded border border-gray-200">{customer.pan}</p>
-                </div>
-              )}
-              {customer.panName && (
-                <div>
-                  <p className="text-xs text-gray-500">PAN Name</p>
-                  <p className="text-sm text-gray-900">{customer.panName}</p>
+                  <p className="text-sm font-mono text-gray-900 bg-gray-50 p-2 rounded border border-gray-200">{customer.panNumber}</p>
                 </div>
               )}
               {customer.tdsPercentage && (
@@ -104,11 +92,11 @@ export default function CustomerDetailModal({ customer, onClose }: { customer: C
           <div>
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Address</h3>
             <div className="space-y-2">
-              {customer.address1 && (
-                <p className="text-sm text-gray-900">{customer.address1}</p>
+              {customer.addressLine1 && (
+                <p className="text-sm text-gray-900">{customer.addressLine1}</p>
               )}
-              {customer.address2 && (
-                <p className="text-sm text-gray-900">{customer.address2}</p>
+              {customer.addressLine2 && (
+                <p className="text-sm text-gray-900">{customer.addressLine2}</p>
               )}
               <p className="text-sm text-gray-900 font-medium">
                 {[customer.city, customer.state, customer.country, customer.pincode].filter(Boolean).join(' ')}
@@ -116,25 +104,19 @@ export default function CustomerDetailModal({ customer, onClose }: { customer: C
             </div>
           </div>
 
-          {/* Notes */}
-          {customer.notes && (
-            <div>
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Notes</h3>
-              <p className="text-sm text-gray-900 bg-gray-50 p-3 rounded border border-gray-200">{customer.notes}</p>
-            </div>
-          )}
+
 
           {/* Status */}
           <div>
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Status</h3>
             <span
               className={`inline-flex items-center px-2.5 py-1 rounded text-xs font-medium ${
-                customer.status === 'active'
+                customer.status === 'ACTIVE'
                   ? 'bg-emerald-50 text-emerald-700'
                   : 'bg-gray-50 text-gray-600'
               }`}
             >
-              {customer.status === 'active' ? 'Active' : 'Inactive'}
+              {customer.status === 'ACTIVE' ? 'Active' : 'Inactive'}
             </span>
           </div>
 

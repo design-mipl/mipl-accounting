@@ -2,7 +2,7 @@ import { X, CreditCard, RotateCcw, Clock } from 'lucide-react'
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react'
 import clsx from 'clsx'
 import type { Payment, ExpenseType, PartyType, PaymentStatus, DeductionType } from '../../../types/payment'
-import { EXPENSE_TYPES, PARTY_TYPES, PAYMENT_STATUSES, DEDUCTION_TYPES, DUMMY_VENDOR_NAMES, DUMMY_EMPLOYEE_NAMES } from '../../../types/payment'
+import { EXPENSE_TYPES, PARTY_TYPES, PAYMENT_STATUSES, DEDUCTION_TYPES } from '../../../types/payment'
 
 type FormTab = 'basic' | 'amount'
 
@@ -50,6 +50,9 @@ function compute(form: FormData) {
 
 export type PaymentFormRef = { handleSave: () => void }
 
+type DropdownVendor = { id: string; vendorName: string; companyName: string | null }
+type DropdownEmployee = { id: string; name: string }
+
 const PaymentForm = forwardRef<PaymentFormRef, {
   onSave?: (p: Payment) => void
   onClose?: () => void
@@ -57,6 +60,34 @@ const PaymentForm = forwardRef<PaymentFormRef, {
   defaultMonth: string
 }>(function PaymentForm({ onSave, initialPayment, defaultMonth }, ref) {
   const [tab, setTab] = useState<FormTab>('basic')
+  const [vendors, setVendors] = useState<DropdownVendor[]>([])
+  const [employees, setEmployees] = useState<DropdownEmployee[]>([])
+
+  useEffect(() => {
+    const token = sessionStorage.getItem('token')
+    const headers: Record<string, string> = {}
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+
+    fetch('/api/vendors/dropdown', { headers })
+      .then(res => res.json())
+      .then(res => {
+        if (res.success && res.data) {
+          setVendors(res.data)
+        }
+      })
+      .catch(err => console.error('Error fetching vendors dropdown:', err))
+
+    fetch('/api/employees/dropdown', { headers })
+      .then(res => res.json())
+      .then(res => {
+        if (res.success && res.data) {
+          setEmployees(res.data)
+        }
+      })
+      .catch(err => console.error('Error fetching employees dropdown:', err))
+  }, [])
 
   const blank: FormData = {
     expenseDate: `${defaultMonth}-01`,
@@ -84,8 +115,8 @@ const PaymentForm = forwardRef<PaymentFormRef, {
         expenseDate: initialPayment.expenseDate,
         expenseType: initialPayment.expenseType,
         partyType: initialPayment.partyType,
-        partyName: initialPayment.partyName,
-        partyNameInput: initialPayment.partyName,
+        partyName: initialPayment.partyType === 'Vendor' ? (initialPayment.vendorId || '') : (initialPayment.partyType === 'Employee' ? (initialPayment.employeeId || '') : ''),
+        partyNameInput: (initialPayment.partyType === 'Household' || initialPayment.partyType === 'Other') ? initialPayment.partyName : '',
         notes: initialPayment.notes,
         recurring: initialPayment.recurring ?? false,
         baseAmount: String(initialPayment.baseAmount),
@@ -93,7 +124,7 @@ const PaymentForm = forwardRef<PaymentFormRef, {
         gstPercent: initialPayment.gstPercent || 18,
         deductionType: initialPayment.deductionType,
         deductionPercent: initialPayment.deductionType === 'PT' ? '' : (initialPayment.deductionPercent ? String(initialPayment.deductionPercent) : ''),
-        ptAmount: initialPayment.deductionType === 'PT' ? String(initialPayment.deductionAmount) : '',
+        ptAmount: initialPayment.deductionType === 'PT' ? String(initialPayment.deductionPercent) : '',
         paidAmount: String(initialPayment.paidAmount),
         paymentStatus: initialPayment.paymentStatus,
       })
@@ -115,17 +146,47 @@ const PaymentForm = forwardRef<PaymentFormRef, {
   function handleSave() {
     const { base, gstAmt, dedAmt, net, paid, bal } = compute(form)
     const month = form.expenseDate.substring(0, 7)
-    const partyName = (form.partyType === 'Vendor' || form.partyType === 'Employee')
-      ? form.partyName
-      : form.partyNameInput
+
+    if (form.partyType === 'Vendor' && !form.partyName) {
+      alert('Please select a vendor')
+      return
+    }
+    if (form.partyType === 'Employee' && !form.partyName) {
+      alert('Please select an employee')
+      return
+    }
+    if ((form.partyType === 'Household' || form.partyType === 'Other') && !form.partyNameInput.trim()) {
+      alert('Please enter a party name')
+      return
+    }
+    if (!form.baseAmount || parseFloat(form.baseAmount) <= 0) {
+      alert('Please enter a valid base amount')
+      return
+    }
+
+    const vendorId = form.partyType === 'Vendor' ? form.partyName : undefined
+    const employeeId = form.partyType === 'Employee' ? form.partyName : undefined
+
+    let partyName = ''
+    if (form.partyType === 'Vendor') {
+      const v = vendors.find(x => x.id === vendorId)
+      partyName = v ? (v.companyName || v.vendorName) : ''
+    } else if (form.partyType === 'Employee') {
+      const e = employees.find(x => x.id === employeeId)
+      partyName = e ? e.name : ''
+    } else {
+      partyName = form.partyNameInput
+    }
 
     const payment: Payment = {
-      id: initialPayment?.id || Math.random().toString(36).slice(2),
+      id: initialPayment?.id || '',
       expenseDate: form.expenseDate,
       month,
       expenseType: form.expenseType,
       partyType: form.partyType,
       partyName,
+      vendorId,
+      employeeId,
       notes: form.notes,
       recurring: form.recurring,
       baseAmount: base,
@@ -133,7 +194,7 @@ const PaymentForm = forwardRef<PaymentFormRef, {
       gstPercent: form.gstApplicable ? form.gstPercent : 0,
       gstAmount: gstAmt,
       deductionType: form.deductionType,
-      deductionPercent: form.deductionType === 'PT' ? 0 : (form.deductionType !== 'None' ? (parseFloat(form.deductionPercent) || 0) : 0),
+      deductionPercent: form.deductionType === 'PT' ? (parseFloat(form.ptAmount) || 0) : (form.deductionType !== 'None' ? (parseFloat(form.deductionPercent) || 0) : 0),
       deductionAmount: dedAmt,
       netPayable: net,
       paidAmount: paid,
@@ -238,12 +299,18 @@ const PaymentForm = forwardRef<PaymentFormRef, {
               {form.partyType === 'Vendor' ? (
                 <select value={form.partyName} onChange={e => set('partyName', e.target.value)} className={inputCls}>
                   <option value="">Select vendor</option>
-                  {DUMMY_VENDOR_NAMES.map(n => <option key={n} value={n}>{n}</option>)}
+                  {vendors.map(v => (
+                    <option key={v.id} value={v.id}>
+                      {v.companyName ? `${v.companyName} (${v.vendorName})` : v.vendorName}
+                    </option>
+                  ))}
                 </select>
               ) : form.partyType === 'Employee' ? (
                 <select value={form.partyName} onChange={e => set('partyName', e.target.value)} className={inputCls}>
                   <option value="">Select employee</option>
-                  {DUMMY_EMPLOYEE_NAMES.map(n => <option key={n} value={n}>{n}</option>)}
+                  {employees.map(emp => (
+                    <option key={emp.id} value={emp.id}>{emp.name}</option>
+                  ))}
                 </select>
               ) : (
                 <input

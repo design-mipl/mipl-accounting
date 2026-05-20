@@ -1,9 +1,23 @@
-import { X, Building2 } from 'lucide-react'
+import { X, Building2, AlertCircle } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import NewVendorForm, { type NewVendorFormRef } from './NewVendorForm'
 import type { Vendor } from '../../../types/vendor'
 
-export default function NewVendorDrawer({ open, onClose, onSave, initialVendor }: { open: boolean; onClose: () => void; onSave?: (vendor: Vendor) => void; initialVendor?: Vendor | null }) {
+export default function NewVendorDrawer({
+  open,
+  onClose,
+  onSave,
+  initialVendor,
+  saving,
+  error,
+}: {
+  open: boolean
+  onClose: () => void
+  onSave?: (vendor: Vendor, logoFile?: File, newDocs?: any[], deletedDocIds?: string[]) => void
+  initialVendor?: Vendor | null
+  saving?: boolean
+  error?: string | null
+}) {
   const formRef = useRef<NewVendorFormRef>(null)
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
@@ -36,24 +50,34 @@ export default function NewVendorDrawer({ open, onClose, onSave, initialVendor }
           </button>
         </div>
 
+        {/* Error message */}
+        {error && (
+          <div className="px-5 py-3 bg-red-50 border-b border-red-100 flex items-start gap-2 text-xs text-red-600">
+            <AlertCircle size={14} className="shrink-0 mt-0.5" />
+            <span>{error}</span>
+          </div>
+        )}
+
         {/* Form */}
         <div className="flex-1 overflow-hidden">
-          <NewVendorForm ref={formRef} onSave={onSave} onClose={onClose} initialVendor={initialVendor} />
+          <NewVendorForm ref={formRef} onSave={onSave} onClose={onClose} initialVendor={initialVendor} open={open} />
         </div>
 
         {/* Footer */}
         <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-gray-200 bg-gray-50 shrink-0">
           <button
             onClick={onClose}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg border border-gray-200 transition-colors"
+            disabled={saving}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg border border-gray-200 transition-colors disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             onClick={() => formRef.current?.handleSave()}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors"
+            disabled={saving}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
           >
-            Save Vendor
+            {saving ? 'Saving...' : 'Save Vendor'}
           </button>
         </div>
       </div>

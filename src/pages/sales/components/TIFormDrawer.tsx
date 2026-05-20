@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { X, ReceiptText, Link2 } from 'lucide-react'
 import clsx from 'clsx'
 import type { TaxInvoice, ProformaInvoice, TIDocStatus, ProjectType } from '../../../types/sales'
 import { TI_DOC_STATUSES, round2 } from '../../../types/sales'
-import { SALES_CUSTOMERS } from '../../../data/sales'
+import { useCustomers } from '../../../contexts/CustomerContext'
 import { useSales, newId } from '../../../contexts/SalesContext'
 import { FileUpload } from './FileUpload'
 
@@ -21,6 +21,15 @@ type Form = {
   status: TIDocStatus
   fileName?: string
   notes: string
+}
+
+function generateTiNumber(existingTis: { tiNumber: string }[]): string {
+  const today = new Date()
+  const month = today.getMonth() + 1
+  const year = today.getFullYear()
+  const fy = month >= 4 ? `${year % 100}-${(year + 1) % 100}` : `${(year - 1) % 100}-${year % 100}`
+  const count = existingTis.filter(ti => ti.tiNumber.includes(fy)).length + 1
+  return `TI/${fy}/${String(count).padStart(3, '0')}`
 }
 
 function blankForm(): Form {
@@ -45,8 +54,14 @@ export function TIFormDrawer({ open, onClose, initial, fromPI }: {
   initial?: TaxInvoice | null
   fromPI?: ProformaInvoice | null
 }) {
-  const { pis, projects, milestones, upsertTI } = useSales()
+  const { pis, tis, projects, milestones, upsertTI } = useSales()
+  const { customers } = useCustomers()
   const [form, setForm] = useState<Form>(blankForm())
+  const SALES_CUSTOMERS = useMemo(() => {
+    return customers
+      .filter(c => c.status === 'ACTIVE' || c.id === form.clientId || c.id === initial?.clientId)
+      .map(c => ({ id: c.id, name: c.companyName }))
+  }, [customers, form.clientId, initial])
 
   useEffect(() => {
     if (initial) {
@@ -65,7 +80,7 @@ export function TIFormDrawer({ open, onClose, initial, fromPI }: {
     } else if (fromPI) {
       applyPI(fromPI)
     } else {
-      setForm(blankForm())
+      setForm({ ...blankForm(), tiNumber: generateTiNumber(tis) })
     }
   }, [initial, fromPI, open]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -74,6 +89,7 @@ export function TIFormDrawer({ open, onClose, initial, fromPI }: {
     const autoStatus = getStatusFromPayment(pi.amountReceived, expectedReceipt)
     setForm({
       ...blankForm(),
+      tiNumber: generateTiNumber(tis),
       linkedPiId: pi.id,
       clientId: pi.clientId,
       projectId: pi.projectId ?? '',
@@ -95,6 +111,18 @@ export function TIFormDrawer({ open, onClose, initial, fromPI }: {
     const pi = pis.find(p => p.id === piId)
     if (pi) applyPI(pi)
   }
+
+  const availablePis = useMemo(() => {
+    return pis.filter(p => {
+      if (initial && initial.linkedPiId === p.id) return true
+      if (fromPI && fromPI.id === p.id) return true
+      return !tis.some(t => t.linkedPiId === p.id)
+    })
+  }, [pis, tis, initial, fromPI])
+
+  const selectedPi = useMemo(() => {
+    return pis.find(p => p.id === form.linkedPiId)
+  }, [pis, form.linkedPiId])
 
   const base = parseFloat(form.baseAmount) || 0
   const gstP = parseFloat(form.gstPercent) || 0
@@ -187,16 +215,43 @@ export function TIFormDrawer({ open, onClose, initial, fromPI }: {
             </label>
             <select value={form.linkedPiId} onChange={e => pickPI(e.target.value)} className={inputCls}>
               <option value="">No linked PI (direct)</option>
-              {pis.map(p => <option key={p.id} value={p.id}>{p.piNumber}</option>)}
+              {availablePis.map(p => <option key={p.id} value={p.id}>{p.piNumber}</option>)}
             </select>
             {isLinked && (
               <p className="text-[10px] text-indigo-500 mt-1">Auto-filled from linked PI. Status auto-calculated from payment. You can still override fields below.</p>
             )}
           </div>
 
+          {selectedPi && (
+            <div className="bg-indigo-50/70 border border-indigo-100 rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider">Linked PI Details</span>
+                <span className="text-xs font-semibold text-indigo-700 bg-white px-2 py-0.5 rounded border border-indigo-100">{selectedPi.piNumber}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2.5 text-xs">
+                <div>
+                  <span className="text-gray-400 block text-[10px] font-medium">Client</span>
+                  <span className="font-semibold text-gray-800">{selectedPi.clientName}</span>
+                </div>
+                {selectedPi.projectName && (
+                  <div>
+                    <span className="text-gray-400 block text-[10px] font-medium">Project</span>
+                    <span className="font-semibold text-gray-800">{selectedPi.projectName}</span>
+                  </div>
+                )}
+                {selectedPi.milestoneLabel && (
+                  <div className="col-span-2">
+                    <span className="text-gray-400 block text-[10px] font-medium">Milestone</span>
+                    <span className="font-semibold text-gray-800">{selectedPi.milestoneLabel}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           <div>
             <label className={labelCls}>Client *</label>
-            <select value={form.clientId} onChange={e => set('clientId', e.target.value)} className={inputCls}>
+            <select value={form.clientId} onChange={e => set('clientId', e.target.value)} className={inputCls} disabled={isLinked}>
               <option value="">Select client</option>
               {SALES_CUSTOMERS.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
@@ -205,14 +260,14 @@ export function TIFormDrawer({ open, onClose, initial, fromPI }: {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Project</label>
-              <select value={form.projectId} onChange={e => set('projectId', e.target.value)} className={inputCls}>
+              <select value={form.projectId} onChange={e => set('projectId', e.target.value)} className={inputCls} disabled={isLinked}>
                 <option value="">No project</option>
                 {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </div>
             <div>
               <label className={labelCls}>Milestone</label>
-              <select value={form.milestoneId} onChange={e => set('milestoneId', e.target.value)} className={inputCls} disabled={!form.projectId}>
+              <select value={form.milestoneId} onChange={e => set('milestoneId', e.target.value)} className={inputCls} disabled={isLinked || !form.projectId}>
                 <option value="">{form.projectId ? 'Select milestone' : 'Pick project'}</option>
                 {milestones.filter(m => m.projectId === form.projectId).map(m => (
                   <option key={m.id} value={m.id}>Milestone {m.number} of {m.total} – {m.name}</option>

@@ -11,33 +11,56 @@ import BillingTrackerPage from './pages/sales/BillingTrackerPage'
 import PlaceholderPage from './pages/PlaceholderPage'
 import { SalesProvider } from './contexts/SalesContext'
 import { CustomerProvider } from './contexts/CustomerContext'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
+import ProtectedRoute from './components/auth/ProtectedRoute'
+import LoginPage from './pages/auth/LoginPage'
+
+function AppRoutes() {
+  const { token } = useAuth()
+  
+  return (
+    <Routes>
+      <Route path="/login" element={token ? <Navigate to="/" replace /> : <LoginPage />} />
+      <Route element={<ProtectedRoute />}>
+        <Route path="/" element={<AppLayout />}>
+          <Route index element={<Navigate to="/customers" replace />} />
+          <Route path="customers" element={<CustomersPage />} />
+
+          <Route path="sales" element={<Navigate to="/sales/projects" replace />} />
+          <Route path="sales/projects" element={<ProjectsPage />} />
+          <Route path="sales/amc" element={<AMCTrackerPage />} />
+          <Route path="sales/proforma" element={<ProformaInvoicesPage />} />
+          <Route path="sales/tax-invoices" element={<TaxInvoicesPage />} />
+          <Route path="sales/billing" element={<BillingTrackerPage />} />
+
+          <Route path="expenses" element={<PlaceholderPage title="Expenses" />} />
+          <Route path="expenses/monthly-payment" element={<MonthlyPaymentRegister />} />
+
+          <Route path="vendors" element={<VendorsPage />} />
+          <Route path="settings" element={<PlaceholderPage title="Settings" />} />
+        </Route>
+      </Route>
+    </Routes>
+  )
+}
+
+import { VendorProvider } from './contexts/VendorContext'
+import { PaymentProvider } from './contexts/PaymentContext'
 
 export default function App() {
   return (
-    <CustomerProvider>
-      <SalesProvider>
-        <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<AppLayout />}>
-            <Route index element={<Navigate to="/customers" replace />} />
-            <Route path="customers" element={<CustomersPage />} />
-
-            <Route path="sales" element={<Navigate to="/sales/projects" replace />} />
-            <Route path="sales/projects" element={<ProjectsPage />} />
-            <Route path="sales/amc" element={<AMCTrackerPage />} />
-            <Route path="sales/proforma" element={<ProformaInvoicesPage />} />
-            <Route path="sales/tax-invoices" element={<TaxInvoicesPage />} />
-            <Route path="sales/billing" element={<BillingTrackerPage />} />
-
-            <Route path="expenses" element={<PlaceholderPage title="Expenses" />} />
-            <Route path="expenses/monthly-payment" element={<MonthlyPaymentRegister />} />
-
-            <Route path="vendors" element={<VendorsPage />} />
-            <Route path="settings" element={<PlaceholderPage title="Settings" />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
-      </SalesProvider>
-    </CustomerProvider>
+    <AuthProvider>
+      <CustomerProvider>
+        <VendorProvider>
+          <PaymentProvider>
+            <SalesProvider>
+              <BrowserRouter>
+                <AppRoutes />
+              </BrowserRouter>
+            </SalesProvider>
+          </PaymentProvider>
+        </VendorProvider>
+      </CustomerProvider>
+    </AuthProvider>
   )
 }

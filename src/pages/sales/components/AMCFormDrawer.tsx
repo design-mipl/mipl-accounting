@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { X, Repeat } from 'lucide-react'
 import type { AMC, AMCFrequency, AMCStatus } from '../../../types/sales'
 import { AMC_FREQUENCIES, AMC_STATUSES } from '../../../types/sales'
-import { SALES_CUSTOMERS } from '../../../data/sales'
+import { useCustomers } from '../../../contexts/CustomerContext'
 import { useSales, newId } from '../../../contexts/SalesContext'
 
 type Form = {
@@ -31,7 +31,13 @@ export function AMCFormDrawer({ open, onClose, initial }: {
   initial?: AMC | null
 }) {
   const { upsertAMC } = useSales()
+  const { customers } = useCustomers()
   const [form, setForm] = useState<Form>(blank)
+  const SALES_CUSTOMERS = useMemo(() => {
+    return customers
+      .filter(c => c.status === 'ACTIVE' || c.id === form.customerId || c.id === initial?.customerId)
+      .map(c => ({ id: c.id, name: c.companyName }))
+  }, [customers, form.customerId, initial])
 
   useEffect(() => {
     if (initial) {

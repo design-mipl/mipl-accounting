@@ -3,7 +3,21 @@ import { useEffect, useRef } from 'react'
 import NewCustomerForm, { type NewCustomerFormRef } from './NewCustomerForm'
 import type { Customer } from '../../../types/customer'
 
-export default function NewCustomerDrawer({ open, onClose, onSave, initialCustomer }: { open: boolean; onClose: () => void; onSave?: (customer: Customer) => void; initialCustomer?: Customer | null }) {
+export default function NewCustomerDrawer({
+  open,
+  onClose,
+  onSave,
+  initialCustomer,
+  saving = false,
+  error = null,
+}: {
+  open: boolean
+  onClose: () => void
+  onSave?: (customer: Customer, logoFile?: File, newDocs?: any[], deletedDocIds?: string[]) => void
+  initialCustomer?: Customer | null
+  saving?: boolean
+  error?: string | null
+}) {
   const formRef = useRef<NewCustomerFormRef>(null)
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
@@ -38,22 +52,31 @@ export default function NewCustomerDrawer({ open, onClose, onSave, initialCustom
 
         {/* Form */}
         <div className="flex-1 overflow-hidden">
-          <NewCustomerForm ref={formRef} onSave={onSave} onClose={onClose} initialCustomer={initialCustomer} />
+          <NewCustomerForm ref={formRef} onSave={onSave} onClose={onClose} initialCustomer={initialCustomer} open={open} />
         </div>
+
+        {/* Error message */}
+        {error && (
+          <div className="px-5 py-2 bg-red-50 border-t border-red-100 text-xs text-red-600">
+            {error}
+          </div>
+        )}
 
         {/* Footer */}
         <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-gray-200 bg-gray-50 shrink-0">
           <button
             onClick={onClose}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg border border-gray-200 transition-colors"
+            disabled={saving}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg border border-gray-200 transition-colors disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             onClick={() => formRef.current?.handleSave()}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors"
+            disabled={saving}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
           >
-            Save Customer
+            {saving ? 'Saving...' : 'Save Customer'}
           </button>
         </div>
       </div>

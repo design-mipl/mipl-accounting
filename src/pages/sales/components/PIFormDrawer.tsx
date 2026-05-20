@@ -3,7 +3,7 @@ import { X, FileText } from 'lucide-react'
 import clsx from 'clsx'
 import type { ProformaInvoice, PIDocStatus, ProjectType } from '../../../types/sales'
 import { PI_DOC_STATUSES, calcMilestone, round2 } from '../../../types/sales'
-import { SALES_CUSTOMERS } from '../../../data/sales'
+import { useCustomers } from '../../../contexts/CustomerContext'
 import { useSales, newId } from '../../../contexts/SalesContext'
 import { FileUpload } from './FileUpload'
 
@@ -22,6 +22,15 @@ type Form = {
   notes: string
 }
 
+function generatePiNumber(existingPis: { piNumber: string }[]): string {
+  const today = new Date()
+  const month = today.getMonth() + 1
+  const year = today.getFullYear()
+  const fy = month >= 4 ? `${year % 100}-${(year + 1) % 100}` : `${(year - 1) % 100}-${year % 100}`
+  const count = existingPis.filter(pi => pi.piNumber.includes(fy)).length + 1
+  return `PI/${fy}/${String(count).padStart(3, '0')}`
+}
+
 function blankForm(): Form {
   return {
     piNumber: '', piDate: new Date().toISOString().slice(0, 10),
@@ -37,8 +46,14 @@ export function PIFormDrawer({ open, onClose, initial, prefill }: {
   initial?: ProformaInvoice | null
   prefill?: Partial<Form> & { projectType?: ProjectType }
 }) {
-  const { projects, milestones, upsertPI } = useSales()
+  const { projects, milestones, pis, upsertPI } = useSales()
+  const { customers } = useCustomers()
   const [form, setForm] = useState<Form>(blankForm())
+  const SALES_CUSTOMERS = useMemo(() => {
+    return customers
+      .filter(c => c.status === 'ACTIVE' || c.id === form.clientId || c.id === initial?.clientId)
+      .map(c => ({ id: c.id, name: c.companyName }))
+  }, [customers, form.clientId, initial])
 
   useEffect(() => {
     if (initial) {
@@ -54,17 +69,22 @@ export function PIFormDrawer({ open, onClose, initial, prefill }: {
         fileName: initial.fileName, notes: initial.notes ?? '',
       })
     } else {
-      setForm({ ...blankForm(), ...prefill })
+      const autoNumber = generatePiNumber(pis)
+      setForm({ ...blankForm(), piNumber: prefill?.piNumber || autoNumber, ...prefill })
     }
-  }, [initial, open]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [initial, prefill, open]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function set<K extends keyof Form>(k: K, v: Form[K]) {
     setForm(prev => ({ ...prev, [k]: v }))
   }
 
   const projectMilestones = useMemo(
-    () => milestones.filter(m => m.projectId === form.projectId).sort((a, b) => a.number - b.number),
-    [milestones, form.projectId],
+    () => milestones.filter(m => {
+      if (m.projectId !== form.projectId) return false
+      if (initial && initial.milestoneId === m.id) return true
+      return !pis.some(p => p.milestoneId === m.id)
+    }).sort((a, b) => a.number - b.number),
+    [milestones, form.projectId, initial, pis],
   )
 
   // Auto-fill base/GST/TDS when milestone picked
@@ -96,6 +116,14 @@ export function PIFormDrawer({ open, onClose, initial, prefill }: {
       tdsPercent: proj ? String(proj.tdsPercent) : prev.tdsPercent,
     }))
   }
+
+  const selectedProject = useMemo(() => {
+    return projects.find(p => p.id === form.projectId)
+  }, [projects, form.projectId])
+
+  const selectedMilestone = useMemo(() => {
+    return milestones.find(m => m.id === form.milestoneId)
+  }, [milestones, form.milestoneId])
 
   const base = parseFloat(form.baseAmount) || 0
   const gstP = parseFloat(form.gstPercent) || 0
@@ -181,9 +209,40 @@ export function PIFormDrawer({ open, onClose, initial, prefill }: {
             </div>
           </div>
 
+          {selectedProject && (
+            <div className="bg-indigo-50/70 border border-indigo-100 rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider font-semibold text-[11px]">Selected Project Details</span>
+                <span className="text-xs font-semibold text-indigo-700 bg-white px-2 py-0.5 rounded border border-indigo-100">{selectedProject.projectType}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <span className="text-gray-400 block text-[10px] font-medium">Project Name</span>
+                  <span className="font-semibold text-gray-800">{selectedProject.name}</span>
+                </div>
+                <div>
+                  <span className="text-gray-400 block text-[10px] font-medium">Total Contract Value</span>
+                  <span className="font-semibold text-gray-800">₹{selectedProject.totalValue.toLocaleString('en-IN')}</span>
+                </div>
+                {selectedMilestone && (
+                  <div className="col-span-2 bg-white/60 p-2.5 rounded-lg border border-indigo-50/50 mt-1 space-y-1">
+                    <div className="flex justify-between items-center text-[10px] text-gray-400">
+                      <span>SELECTED MILESTONE</span>
+                      <span className="font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">{selectedMilestone.percentage}% Value</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-gray-800 font-semibold">
+                      <span>{selectedMilestone.name}</span>
+                      <span>₹{((selectedProject.totalValue * selectedMilestone.percentage) / 100).toLocaleString('en-IN')}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           <div>
             <label className={labelCls}>Client *</label>
-            <select value={form.clientId} onChange={e => set('clientId', e.target.value)} className={inputCls}>
+            <select value={form.clientId} onChange={e => set('clientId', e.target.value)} className={inputCls} disabled={!!form.projectId}>
               <option value="">Select client</option>
               {SALES_CUSTOMERS.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>

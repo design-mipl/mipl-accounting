@@ -41,15 +41,12 @@ export type Payment = {
   referenceNumber?: string
   paymentDate?: string
   attachmentName?: string
+  vendorId?: string
+  employeeId?: string
   createdAt: string
   updatedAt?: string
 }
 
-export const DUMMY_VENDOR_NAMES = [
-  'TechSupply Solutions', 'Global Supplies Inc', 'Industrial Parts Ltd',
-  'City Electric Board', 'Office Space Rentals Ltd', 'Cloud Services Inc',
-]
+export const DUMMY_VENDOR_NAMES: string[] = []
 
-export const DUMMY_EMPLOYEE_NAMES = [
-  'Arjun Sharma', 'Priya Mehta', 'Rahul Verma', 'Sneha Patel', 'Kiran Nair',
-]
+export const DUMMY_EMPLOYEE_NAMES: string[] = []

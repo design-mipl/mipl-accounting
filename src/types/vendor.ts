@@ -1,4 +1,4 @@
-export type VendorStatus = 'active' | 'inactive'
+export type VendorStatus = 'ACTIVE' | 'INACTIVE'
 
 export type Vendor = {
   id: string
@@ -31,6 +31,7 @@ export type Vendor = {
   createdAt: string
   updatedAt?: string
   deletedAt?: string
+  clientLogo?: string
 }
 
 export type VendorGroup = {

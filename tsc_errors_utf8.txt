@@ -1,0 +1,40 @@
+﻿src/pages/customers/components/CustomerDetailModal.tsx(19,86): error TS2339: Property 'name' does not exist on type 'Customer'.
+src/pages/customers/components/CustomerDetailModal.tsx(42,76): error TS2339: Property 'name' does not exist on type 'Customer'.
+src/pages/customers/components/CustomerDetailModal.tsx(51,25): error TS2551: Property 'phone' does not exist on type 'Customer'. Did you mean 'phones'?
+src/pages/customers/components/CustomerDetailModal.tsx(54,66): error TS2551: Property 'phone' does not exist on type 'Customer'. Did you mean 'phones'?
+src/pages/customers/components/CustomerDetailModal.tsx(57,25): error TS2551: Property 'email' does not exist on type 'Customer'. Did you mean 'emails'?
+src/pages/customers/components/CustomerDetailModal.tsx(60,66): error TS2551: Property 'email' does not exist on type 'Customer'. Did you mean 'emails'?
+src/pages/customers/components/CustomerDetailModal.tsx(70,25): error TS2339: Property 'gstin' does not exist on type 'Customer'.
+src/pages/customers/components/CustomerDetailModal.tsx(73,122): error TS2339: Property 'gstin' does not exist on type 'Customer'.
+src/pages/customers/components/CustomerDetailModal.tsx(76,25): error TS2339: Property 'gstinName' does not exist on type 'Customer'.
+src/pages/customers/components/CustomerDetailModal.tsx(79,66): error TS2339: Property 'gstinName' does not exist on type 'Customer'.
+src/pages/customers/components/CustomerDetailModal.tsx(82,25): error TS2339: Property 'pan' does not exist on type 'Customer'.
+src/pages/customers/components/CustomerDetailModal.tsx(85,122): error TS2339: Property 'pan' does not exist on type 'Customer'.
+src/pages/customers/components/CustomerDetailModal.tsx(88,25): error TS2339: Property 'panName' does not exist on type 'Customer'.
+src/pages/customers/components/CustomerDetailModal.tsx(91,66): error TS2339: Property 'panName' does not exist on type 'Customer'.
+src/pages/customers/components/CustomerDetailModal.tsx(94,25): error TS2339: Property 'tdsPercentage' does not exist on type 'Customer'.
+src/pages/customers/components/CustomerDetailModal.tsx(97,77): error TS2339: Property 'tdsPercentage' does not exist on type 'Customer'.
+src/pages/customers/components/CustomerDetailModal.tsx(107,25): error TS2339: Property 'address1' does not exist on type 'Customer'.
+src/pages/customers/components/CustomerDetailModal.tsx(108,64): error TS2339: Property 'address1' does not exist on type 'Customer'.
+src/pages/customers/components/CustomerDetailModal.tsx(110,25): error TS2339: Property 'address2' does not exist on type 'Customer'.
+src/pages/customers/components/CustomerDetailModal.tsx(111,64): error TS2339: Property 'address2' does not exist on type 'Customer'.
+src/pages/customers/components/CustomerDetailModal.tsx(132,17): error TS2367: This comparison appears to be unintentional because the types 'CustomerStatus' and '"active"' have no overlap.
+src/pages/customers/components/CustomerDetailModal.tsx(137,16): error TS2367: This comparison appears to be unintentional because the types 'CustomerStatus' and '"active"' have no overlap.
+src/pages/sales/AMCTrackerPage.tsx(25,76): error TS2339: Property 'name' does not exist on type 'Project'.
+src/pages/sales/AMCTrackerPage.tsx(30,17): error TS2339: Property 'name' does not exist on type 'Project'.
+src/pages/sales/BillingTrackerPage.tsx(56,24): error TS2339: Property 'name' does not exist on type 'Project'.
+src/pages/sales/BillingTrackerPage.tsx(158,36): error TS2304: Cannot find name 'setReceiptOpen'.
+src/pages/sales/components/PIFormDrawer.tsx(129,26): error TS2339: Property 'name' does not exist on type 'Project'.
+src/pages/sales/components/PIFormDrawer.tsx(197,71): error TS2339: Property 'name' does not exist on type 'Project'.
+src/pages/sales/components/ProjectDetailDrawer.tsx(45,76): error TS2339: Property 'name' does not exist on type 'Project'.
+src/pages/sales/components/ProjectDetailDrawer.tsx(77,60): error TS2339: Property 'name' does not exist on type 'Project'.
+src/pages/sales/components/ProjectFormDrawer.tsx(61,23): error TS2339: Property 'name' does not exist on type 'Project'.
+src/pages/sales/components/ProjectFormDrawer.tsx(135,7): error TS2353: Object literal may only specify known properties, and 'name' does not exist in type 'Project'.
+src/pages/sales/components/TIFormDrawer.tsx(126,26): error TS2339: Property 'name' does not exist on type 'Project'.
+src/pages/sales/components/TIFormDrawer.tsx(210,71): error TS2339: Property 'name' does not exist on type 'Project'.
+src/pages/sales/ProformaInvoicesPage.tsx(123,77): error TS2322: Type '"gray" | "green" | "orange"' is not assignable to type 'Tone | undefined'.
+  Type '"orange"' is not assignable to type 'Tone | undefined'.
+src/pages/sales/ProjectsPage.tsx(297,78): error TS2339: Property 'name' does not exist on type 'Project'.
+src/pages/sales/ProjectsPage.tsx(307,83): error TS2339: Property 'name' does not exist on type 'Project'.
+src/pages/sales/ProjectsPage.tsx(331,9): error TS2322: Type 'PIFormPrefill | null' is not assignable to type '(Partial<Form> & { projectType?: "Other" | "Website" | "Web App" | "Mobile App" | "Software Development" | "Digital Marketing" | "Branding" | "AMC" | "Retainer" | "One-time" | undefined; }) | undefined'.
+  Type 'null' is not assignable to type '(Partial<Form> & { projectType?: "Other" | "Website" | "Web App" | "Mobile App" | "Software Development" | "Digital Marketing" | "Branding" | "AMC" | "Retainer" | "One-time" | undefined; }) | undefined'.

@@ -86,7 +86,17 @@ function PaymentRow({ p, isGlobalMode, onView, onEdit, onDelete, onUpdate }: {
       <td className="py-1.5 pr-3 align-middle">
         <select
           value={p.paymentStatus}
-          onChange={e => onUpdate(p.id, { paymentStatus: e.target.value as PaymentStatus })}
+          onChange={e => {
+            const newStatus = e.target.value as PaymentStatus
+            let newPaid = p.paidAmount
+            if (newStatus === 'Paid') {
+              newPaid = p.netPayable
+            } else if (newStatus === 'Pending') {
+              newPaid = 0
+            }
+            const newBal = parseFloat(Math.max(0, p.netPayable - newPaid).toFixed(2))
+            onUpdate(p.id, { paidAmount: newPaid, balanceAmount: newBal, paymentStatus: newStatus })
+          }}
           className={clsx(
             'text-[11px] px-2 py-1 rounded border font-medium outline-none focus:ring-1 focus:ring-indigo-200 cursor-pointer',
             statusSelectCls[p.paymentStatus],
@@ -103,7 +113,7 @@ function PaymentRow({ p, isGlobalMode, onView, onEdit, onDelete, onUpdate }: {
       </td>
 
       <td className="py-1.5 pr-2 text-right align-middle">
-        <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex items-center justify-end gap-0.5">
           <button onClick={() => onView(p)} title="View" className="p-1.5 rounded hover:bg-indigo-50 text-gray-400 hover:text-indigo-600 transition-colors">
             <Eye size={13} />
           </button>

@@ -3,14 +3,15 @@ import { Plus, Search, Eye, Pencil, Trash2, Repeat, FileText } from 'lucide-reac
 import clsx from 'clsx'
 import type { AMC, AMCBillingCycle } from '../../types/sales'
 import { AMC_STATUSES, AMC_FREQUENCIES, calcPaymentStatus } from '../../types/sales'
+import { useCustomers } from '../../contexts/CustomerContext'
 import { useSales } from '../../contexts/SalesContext'
-import { SALES_CUSTOMERS } from '../../data/sales'
 import { fmtINR } from '../../utils/currency'
 import { StatusBadge, amcStatusTone, piTone, tiTone, paymentTone } from './components/StatusBadge'
 import { AMCFormDrawer } from './components/AMCFormDrawer'
 
 export default function AMCTrackerPage() {
   const { amcs, amcCycles, projects, deleteAMC } = useSales()
+  const { customers } = useCustomers()
   const [search, setSearch] = useState('')
   const [fCustomer, setFCustomer] = useState('')
   const [fStatus, setFStatus] = useState('')
@@ -18,6 +19,13 @@ export default function AMCTrackerPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [editAMC, setEditAMC] = useState<AMC | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+
+  const SALES_CUSTOMERS = useMemo(() => {
+    return customers.map(c => ({
+      id: c.id,
+      name: c.companyName,
+    }))
+  }, [customers])
 
   // Synthetic AMCs from projects with billingType === 'AMC' (so AMC project shows here too)
   const syntheticFromProjects: AMC[] = useMemo(() => {
@@ -123,7 +131,7 @@ export default function AMCTrackerPage() {
                       <td className="py-2.5 px-3 text-xs text-gray-500">{a.nextBillingDate || '—'}</td>
                       <td className="py-2.5 px-3"><StatusBadge label={a.status} tone={amcStatusTone(a.status)} size="xs" /></td>
                       <td className="py-2.5 px-3 text-right">
-                        <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center justify-end gap-0.5">
                           <button onClick={() => setExpandedId(expanded ? null : a.id)} title="View cycles" className="p-1.5 rounded hover:bg-indigo-50 text-gray-400 hover:text-indigo-600">
                             <Eye size={13} />
                           </button>

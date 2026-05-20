@@ -3,14 +3,18 @@ import { Plus, Search, Pencil, Trash2 } from 'lucide-react'
 import clsx from 'clsx'
 import type { TaxInvoice } from '../../types/sales'
 import { TI_DOC_STATUSES } from '../../types/sales'
+import { useCustomers } from '../../contexts/CustomerContext'
 import { useSales } from '../../contexts/SalesContext'
-import { SALES_CUSTOMERS } from '../../data/sales'
 import { fmtINR } from '../../utils/currency'
 import { StatusBadge, tiTone } from './components/StatusBadge'
 import { TIFormDrawer } from './components/TIFormDrawer'
 
 export default function TaxInvoicesPage() {
   const { tis, pis, deleteTI } = useSales()
+  const { customers } = useCustomers()
+  const SALES_CUSTOMERS = useMemo(() => {
+    return customers.map(c => ({ id: c.id, name: c.companyName }))
+  }, [customers])
   const [search, setSearch] = useState('')
   const [fClient, setFClient] = useState('')
   const [fStatus, setFStatus] = useState('')
@@ -21,15 +25,17 @@ export default function TaxInvoicesPage() {
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim()
     return tis.filter(t => {
+      const customer = customers.find(c => c.id === t.clientId)
+      const clientName = customer ? customer.companyName : t.clientName
       if (q && !t.tiNumber.toLowerCase().includes(q)
-            && !t.clientName.toLowerCase().includes(q)
+            && !clientName.toLowerCase().includes(q)
             && !(t.linkedPiNumber ?? '').toLowerCase().includes(q)) return false
       if (fClient && t.clientId !== fClient) return false
       if (fStatus && t.status !== fStatus) return false
       if (fPI && t.linkedPiId !== fPI) return false
       return true
     })
-  }, [tis, search, fClient, fStatus, fPI])
+  }, [tis, search, fClient, fStatus, fPI, customers])
 
   return (
     <div className="max-w-[1700px] mx-auto">
@@ -80,11 +86,14 @@ export default function TaxInvoicesPage() {
               {filtered.length === 0 && (
                 <tr><td colSpan={13} className="py-12 text-center text-xs text-gray-400">No tax invoices.</td></tr>
               )}
-              {filtered.map(t => (
-                <tr key={t.id} className="group border-b border-gray-50 hover:bg-gray-50/60 text-xs">
-                  <td className="py-2.5 px-3 font-mono font-medium text-gray-900">{t.tiNumber}</td>
-                  <td className="py-2.5 px-3 text-gray-500">{t.tiDate}</td>
-                  <td className="py-2.5 px-3 text-gray-700">{t.clientName}</td>
+              {filtered.map(t => {
+                const customer = customers.find(c => c.id === t.clientId)
+                const clientName = customer ? customer.companyName : t.clientName
+                return (
+                  <tr key={t.id} className="group border-b border-gray-50 hover:bg-gray-50/60 text-xs">
+                    <td className="py-2.5 px-3 font-mono font-medium text-gray-900">{t.tiNumber}</td>
+                    <td className="py-2.5 px-3 text-gray-500">{t.tiDate}</td>
+                    <td className="py-2.5 px-3 text-gray-700">{clientName}</td>
                   <td className="py-2.5 px-3"><StatusBadge label={t.projectType || '—'} tone="gray" size="xs" /></td>
                   <td className="py-2.5 px-3 text-gray-500 text-[11px]">{t.milestoneLabel || '—'}</td>
                   <td className="py-2.5 px-3 text-right">{fmtINR(t.baseAmount)}</td>
@@ -97,13 +106,14 @@ export default function TaxInvoicesPage() {
                   </td>
                   <td className="py-2.5 px-3"><StatusBadge label={t.status} tone={tiTone(t.status)} size="xs" /></td>
                   <td className="py-2.5 px-3 text-right">
-                    <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center justify-end gap-0.5">
                       <button onClick={() => { setEditTI(t); setFormOpen(true) }} title="Edit" className="p-1.5 rounded hover:bg-amber-50 text-gray-400 hover:text-amber-600"><Pencil size={13} /></button>
                       <button onClick={() => { if (confirm(`Delete TI ${t.tiNumber}?`)) deleteTI(t.id) }} title="Delete" className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-600"><Trash2 size={13} /></button>
                     </div>
                   </td>
                 </tr>
-              ))}
+                )
+              })}
             </tbody>
           </table>
         </div>

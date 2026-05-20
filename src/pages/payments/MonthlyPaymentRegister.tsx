@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, Search, Plus, SlidersHorizontal, HelpCircle,
 import clsx from 'clsx'
 import type { Payment } from '../../types/payment'
 import { EXPENSE_TYPES, PARTY_TYPES, PAYMENT_STATUSES } from '../../types/payment'
-import { DUMMY_PAYMENTS } from '../../data/payments'
+import { usePayments } from '../../contexts/PaymentContext'
 import SummaryCards from './components/SummaryCards'
 import PaymentTable from './components/PaymentTable'
 import PaymentFormDrawer from './components/PaymentFormDrawer'
@@ -25,8 +25,11 @@ function fmtDate(iso: string) {
 }
 
 export default function MonthlyPaymentRegister() {
-  const [selectedMonth, setSelectedMonth] = useState('2026-04')
-  const [payments, setPayments] = useState<Payment[]>(DUMMY_PAYMENTS)
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  })
+  const { payments, loading, addPayment, updatePayment, deletePayment } = usePayments()
   const [search, setSearch] = useState('')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
@@ -48,9 +51,8 @@ export default function MonthlyPaymentRegister() {
       // Date range
       if (fromDate && p.expenseDate < fromDate) return false
       if (toDate && p.expenseDate > toDate) return false
-      // Omnisearch — party name, expense type, notes, party type
       if (q && ![p.partyName, p.expenseType, p.notes, p.partyType]
-            .some(f => f.toLowerCase().includes(q))) return false
+            .some(f => f?.toLowerCase()?.includes(q))) return false
       // Dropdown filters
       if (filterType && p.expenseType !== filterType) return false
       if (filterParty && p.partyType !== filterParty) return false
@@ -68,14 +70,18 @@ export default function MonthlyPaymentRegister() {
     totalBalance: filteredPayments.reduce((s, p) => s + p.balanceAmount, 0),
   }), [filteredPayments])
 
-  function handleSave(payment: Payment) {
-    if (editingPayment) {
-      setPayments(prev => prev.map(p => p.id === editingPayment.id ? payment : p))
-    } else {
-      setPayments(prev => [...prev, payment])
+  async function handleSave(payment: Payment) {
+    try {
+      if (editingPayment) {
+        await updatePayment(editingPayment.id, payment)
+      } else {
+        await addPayment(payment)
+      }
+      setDrawerOpen(false)
+      setEditingPayment(null)
+    } catch (err: any) {
+      alert(err.message || 'Failed to save payment')
     }
-    setDrawerOpen(false)
-    setEditingPayment(null)
   }
 
   function handleEdit(payment: Payment) {
@@ -87,14 +93,22 @@ export default function MonthlyPaymentRegister() {
     setViewingPayment(payment)
   }
 
-  function handleDelete(id: string) {
-    setPayments(prev => prev.filter(p => p.id !== id))
+  async function handleDelete(id: string) {
+    if (window.confirm('Are you sure you want to delete this payment entry?')) {
+      try {
+        await deletePayment(id)
+      } catch (err: any) {
+        alert(err.message || 'Failed to delete payment')
+      }
+    }
   }
 
-  function handleUpdate(id: string, updates: Partial<Payment>) {
-    setPayments(prev => prev.map(p =>
-      p.id === id ? { ...p, ...updates, updatedAt: new Date().toISOString() } : p
-    ))
+  async function handleUpdate(id: string, updates: Partial<Payment>) {
+    try {
+      await updatePayment(id, updates)
+    } catch (err: any) {
+      alert(err.message || 'Failed to update payment')
+    }
   }
 
   function closeDrawer() {

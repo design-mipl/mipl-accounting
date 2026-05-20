@@ -4,8 +4,8 @@ import {
   HelpCircle, Download, Upload,
 } from 'lucide-react'
 import clsx from 'clsx'
+import { useVendors } from '../../contexts/VendorContext'
 import type { Vendor } from '../../types/vendor'
-import { DUMMY_VENDORS, DUMMY_VENDOR_GROUPS } from '../../data/vendors'
 import VendorTable from './components/VendorTable'
 import NewVendorDrawer from './components/NewVendorDrawer'
 import VendorDetailModal from './components/VendorDetailModal'
@@ -18,16 +18,19 @@ const btnSecondary =
   'inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg border border-gray-200 transition-colors'
 
 export default function VendorsPage() {
+  const { vendors, deleteVendor, restoreVendor, updateVendor, addVendor } = useVendors()
+
   const [tab, setTab] = useState<Tab>('all')
   const [search, setSearch] = useState('')
   const [actionsOpen, setActionsOpen] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null)
   const [viewingVendor, setViewingVendor] = useState<Vendor | null>(null)
-  const [vendors, setVendors] = useState<Vendor[]>(DUMMY_VENDORS)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const activeVendors = useMemo(() => vendors.filter(v => !v.deletedAt), [vendors])
-  const deletedVendors = useMemo(() => vendors.filter(v => !!v.deletedAt), [vendors])
+  const activeVendors = useMemo(() => vendors.filter(v => v.status === 'ACTIVE' && !v.deletedAt), [vendors])
+  const deletedVendors = useMemo(() => vendors.filter(v => v.status === 'INACTIVE' || !!v.deletedAt), [vendors])
 
   const filteredActive = useMemo(() => {
     const q = search.toLowerCase().trim()
@@ -50,33 +53,34 @@ export default function VendorsPage() {
   }, [deletedVendors, search])
 
   function handleDelete(id: string) {
-    setVendors(prev =>
-      prev.map(v => v.id === id ? { ...v, deletedAt: new Date().toISOString() } : v),
-    )
+    deleteVendor(id)
   }
 
   function handleRestore(id: string) {
-    setVendors(prev =>
-      prev.map(v => v.id === id ? { ...v, deletedAt: undefined } : v),
-    )
+    restoreVendor(id)
   }
 
-  function handleStatusChange(id: string, status: 'active' | 'inactive') {
-    setVendors(prev =>
-      prev.map(v => v.id === id ? { ...v, status } : v),
-    )
+  function handleStatusChange(id: string, status: 'ACTIVE' | 'INACTIVE') {
+    updateVendor(id, { status })
   }
 
-  function handleSaveVendor(vendor: Vendor) {
-    if (editingVendor) {
-      setVendors(prev =>
-        prev.map(v => v.id === editingVendor.id ? vendor : v),
-      )
-      setEditingVendor(null)
-    } else {
-      setVendors(prev => [...prev, vendor])
+  async function handleSaveVendor(vendor: Vendor, logoFile?: File, newDocs?: any[], deletedDocIds?: string[]) {
+    try {
+      setSaving(true)
+      setError(null)
+      if (editingVendor) {
+        await updateVendor(editingVendor.id, vendor, logoFile, newDocs, deletedDocIds)
+        setEditingVendor(null)
+      } else {
+        await addVendor(vendor, logoFile, newDocs)
+      }
+      setDrawerOpen(false)
+    } catch (err: any) {
+      console.error(err)
+      setError(err.message || 'Failed to save vendor')
+    } finally {
+      setSaving(false)
     }
-    setDrawerOpen(false)
   }
 
   function handleEdit(vendor: Vendor) {
@@ -91,6 +95,7 @@ export default function VendorsPage() {
   function closeDrawer() {
     setDrawerOpen(false)
     setEditingVendor(null)
+    setError(null)
   }
 
   const TABS: { key: Tab; label: string; count?: number }[] = [
@@ -208,7 +213,7 @@ export default function VendorsPage() {
         )}
       </div>
 
-      <NewVendorDrawer open={drawerOpen} onClose={closeDrawer} onSave={handleSaveVendor} initialVendor={editingVendor} />
+      <NewVendorDrawer open={drawerOpen} onClose={closeDrawer} onSave={handleSaveVendor} initialVendor={editingVendor} saving={saving} error={error} />
       <VendorDetailModal vendor={viewingVendor} onClose={() => setViewingVendor(null)} />
     </div>
   )

@@ -1,4 +1,4 @@
-export type CustomerStatus = 'Active' | 'Inactive'
+
 
 export type ContactPerson = {
   id: string
@@ -9,27 +9,33 @@ export type ContactPerson = {
   isPrimary: boolean
 }
 
+export type CustomerStatus = 'ACTIVE' | 'INACTIVE'
+
 export type Customer = {
   id: string
   companyName: string
-  ownerName: string
-  emails: string[]      // array of email addresses
-  phones: string[]      // array of phone numbers
-  website?: string
-  gstNumber: string
-  gstApplicable: boolean
-  tdsNumber: string
-  tdsApplicable: boolean
-  panNumber?: string
+  contactPerson: string
+  phoneNumber: string
+  email: string
+  ccEmails: string[]
+  clientLogo?: string
+  
   addressLine1: string
   addressLine2?: string
   city: string
   state: string
+  country: string
   pincode: string
-  country?: string
-  contactPersons: ContactPerson[]
-  notes?: string
   status: CustomerStatus
+  
+  // Tax details
+  gstApplicable: boolean
+  gstinNumber?: string
+  verifiedGstinName?: string
+  panNumber?: string
+  tdsApplicable: boolean
+  tdsPercentage?: number
+  
   createdAt: string
   updatedAt?: string
   deletedAt?: string

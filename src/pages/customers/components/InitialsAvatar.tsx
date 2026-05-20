@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import clsx from 'clsx'
 
 const COLORS = [
@@ -23,7 +24,23 @@ function initials(name: string) {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
-export default function InitialsAvatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' }) {
+export default function InitialsAvatar({ name, imageUrl, size = 'md' }: { name: string; imageUrl?: string; size?: 'sm' | 'md' }) {
+  const [imgFailed, setImgFailed] = useState(false)
+
+  if (imageUrl && !imgFailed) {
+    return (
+      <img
+        src={imageUrl}
+        alt={name}
+        onError={() => setImgFailed(true)}
+        className={clsx(
+          'rounded-full object-cover shrink-0 border border-gray-200',
+          size === 'sm' ? 'w-7 h-7' : 'w-9 h-9',
+        )}
+      />
+    )
+  }
+
   return (
     <div
       className={clsx(

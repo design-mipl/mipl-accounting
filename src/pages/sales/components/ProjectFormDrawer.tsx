@@ -5,7 +5,7 @@ import type { Project, Milestone, ProjectType, BillingType, ProjectStatus, AMCFr
 import {
   PROJECT_TYPES, BILLING_TYPES, PROJECT_STATUSES, round2,
 } from '../../../types/sales'
-import { SALES_CUSTOMERS } from '../../../data/sales'
+import { useCustomers } from '../../../contexts/CustomerContext'
 import { useSales, newId } from '../../../contexts/SalesContext'
 import { fmtINR } from '../../../utils/currency'
 
@@ -51,8 +51,20 @@ export function ProjectFormDrawer({ open, onClose, initial }: {
   initial?: Project | null
 }) {
   const { milestones, upsertProject, setMilestonesForProject } = useSales()
+  const { customers } = useCustomers()
   const [form, setForm] = useState<Form>(blankForm())
   const [msRows, setMsRows] = useState<MsRow[]>([])
+
+  const SALES_CUSTOMERS = useMemo(() => {
+    return customers
+      .filter(c => c.status === 'ACTIVE' || c.id === form.customerId || c.id === initial?.customerId)
+      .map(c => ({
+      id: c.id,
+      name: c.companyName,
+      gstPercent: c.gstApplicable ? 18 : 0,
+      tdsPercent: c.tdsPercentage ?? 10
+    }))
+  }, [customers, form.customerId, initial])
 
   useEffect(() => {
     if (initial) {

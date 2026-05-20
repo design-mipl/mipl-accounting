@@ -2,8 +2,8 @@ import { useState, useMemo } from 'react'
 import { Search, FileText, ReceiptText, ReceiptIndianRupee } from 'lucide-react'
 import clsx from 'clsx'
 import { calcMilestone, calcPaymentStatus } from '../../types/sales'
+import { useCustomers } from '../../contexts/CustomerContext'
 import { useSales } from '../../contexts/SalesContext'
-import { SALES_CUSTOMERS } from '../../data/sales'
 import { fmtINR } from '../../utils/currency'
 import { StatusBadge, piTone, tiTone, paymentTone } from './components/StatusBadge'
 import { PIFormDrawer } from './components/PIFormDrawer'
@@ -31,6 +31,10 @@ type Row = {
 
 export default function BillingTrackerPage() {
   const { projects, milestones, amcs, amcCycles, pis, tis } = useSales()
+  const { customers } = useCustomers()
+  const SALES_CUSTOMERS = useMemo(() => {
+    return customers.map(c => ({ id: c.id, name: c.companyName }))
+  }, [customers])
   const [search, setSearch] = useState('')
   const [fCustomer, setFCustomer] = useState('')
   const [fBilling, setFBilling] = useState('')
@@ -38,12 +42,15 @@ export default function BillingTrackerPage() {
 
   const [piOpen, setPiOpen] = useState(false)
   const [tiOpen, setTiOpen] = useState(false)
+  const [receiptOpen, setReceiptOpen] = useState(false)
 
   const rows: Row[] = useMemo(() => {
     const out: Row[] = []
 
     // Project milestones
     for (const proj of projects) {
+      const customer = customers.find(c => c.id === proj.customerId)
+      const customerName = customer ? customer.companyName : proj.customerName
       const ms = milestones.filter(m => m.projectId === proj.id)
       for (const m of ms) {
         const pi = pis.find(p => p.milestoneId === m.id)
@@ -52,16 +59,16 @@ export default function BillingTrackerPage() {
         const ti = tis.find(t => t.milestoneId === m.id)
         out.push({
           key: `m-${m.id}`,
-          customer: proj.customerName,
+          customer: customerName,
           parent: proj.name,
           unit: `M${m.number}/${m.total} – ${m.name}`,
           billingType: proj.billingType,
           base: c.baseAmount, gst: c.gstAmount, gross: c.grossAmount, tds: c.tdsAmount,
           expected: c.expectedReceipt, received: c.amountReceived, outstanding: c.outstandingBeyondTds,
           piNumber: pi?.piNumber ?? '—',
-          piStatus: m.piStatus,
+          piStatus: pi ? pi.status : 'Not Raised',
           tiNumber: ti?.tiNumber ?? '—',
-          tiStatus: m.tiStatus,
+          tiStatus: ti ? ti.status : 'Not Created',
           paymentStatus: c.expectedReceipt === 0 ? 'Pending' : calcPaymentStatus(c.amountReceived, c.expectedReceipt),
         })
       }
@@ -69,6 +76,8 @@ export default function BillingTrackerPage() {
 
     // AMC billing cycles
     for (const amc of amcs) {
+      const customer = customers.find(c => c.id === amc.customerId)
+      const customerName = customer ? customer.companyName : amc.customerName
       const cycles = amcCycles.filter(cc => cc.amcId === amc.id)
       for (const cc of cycles) {
         const pi = pis.find(p => p.amcCycleId === cc.id)
@@ -76,23 +85,23 @@ export default function BillingTrackerPage() {
         const outstanding = cc.expectedReceipt - cc.amountReceived
         out.push({
           key: `c-${cc.id}`,
-          customer: amc.customerName,
+          customer: customerName,
           parent: amc.name,
           unit: cc.period,
           billingType: 'AMC',
           base: cc.baseAmount, gst: cc.gstAmount, gross: cc.grossAmount, tds: cc.tdsAmount,
           expected: cc.expectedReceipt, received: cc.amountReceived, outstanding,
           piNumber: pi?.piNumber ?? '—',
-          piStatus: cc.piStatus,
+          piStatus: pi ? pi.status : 'Not Raised',
           tiNumber: ti?.tiNumber ?? '—',
-          tiStatus: cc.tiStatus,
+          tiStatus: ti ? ti.status : 'Not Created',
           paymentStatus: calcPaymentStatus(cc.amountReceived, cc.expectedReceipt),
         })
       }
     }
 
     return out
-  }, [projects, milestones, amcs, amcCycles, pis, tis])
+  }, [projects, milestones, amcs, amcCycles, pis, tis, customers])
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim()
@@ -108,7 +117,7 @@ export default function BillingTrackerPage() {
       if (fPayment && r.paymentStatus !== fPayment) return false
       return true
     })
-  }, [rows, search, fCustomer, fBilling, fPayment])
+  }, [rows, search, fCustomer, fBilling, fPayment, SALES_CUSTOMERS])
 
   const summary = useMemo(() => {
     const totalBilling = filtered.reduce((s, r) => s + r.gross, 0)
