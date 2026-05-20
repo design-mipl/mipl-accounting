@@ -51,6 +51,7 @@ type VendorState = {
   restoreVendor: (id: string) => Promise<void>
   getVendor: (id: string) => Vendor | undefined
   refreshVendors: () => Promise<void>
+  bulkAddVendors: (vendorsList: any[]) => Promise<void>
 }
 
 const VendorContext = createContext<VendorState | null>(null)
@@ -66,6 +67,7 @@ function mapDBVendorToVendor(dbVendor: any): Vendor {
     ccEmails: dbVendor.ccEmails || [],
     gstApplicable: dbVendor.gstApplicable || false,
     gstin: dbVendor.gstinNumber || '',
+    verifiedGstinName: dbVendor.verifiedGstinName || '',
     pan: dbVendor.panNumber || '',
     panName: dbVendor.panName || '',
     tdsApplicable: dbVendor.tdsApplicable || false,
@@ -116,6 +118,9 @@ function mapVendorToDBInput(vendor: Partial<Vendor>): any {
   }
   if (vendor.gstin !== undefined) {
     dbInput.gstinNumber = vendor.gstin
+  }
+  if (vendor.verifiedGstinName !== undefined) {
+    dbInput.verifiedGstinName = vendor.verifiedGstinName
   }
   if (vendor.pan !== undefined) {
     dbInput.panNumber = vendor.pan
@@ -384,7 +389,16 @@ export function VendorProvider({ children }: { children: ReactNode }) {
       return vendors.find(v => v.id === id)
     },
     
-    refreshVendors: () => fetchVendors(page, limit, search, active, vendorType, startDate, endDate)
+    refreshVendors: () => fetchVendors(page, limit, search, active, vendorType, startDate, endDate),
+
+    bulkAddVendors: async (vendorsList) => {
+      const dbInputList = vendorsList.map(mapVendorToDBInput)
+      await apiCall('/vendors/bulk', {
+        method: 'POST',
+        body: JSON.stringify({ vendors: dbInputList })
+      })
+      await fetchVendors(page, limit, search, active, vendorType, startDate, endDate)
+    }
   }
 
   return <VendorContext.Provider value={value}>{children}</VendorContext.Provider>

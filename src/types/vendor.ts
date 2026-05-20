@@ -10,6 +10,7 @@ export type Vendor = {
   ccEmails?: string[]
   gstApplicable: boolean
   gstin: string
+  verifiedGstinName?: string
   pan: string
   panName: string
   tdsApplicable: boolean

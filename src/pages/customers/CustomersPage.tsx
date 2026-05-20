@@ -9,6 +9,8 @@ import { useCustomers } from '../../contexts/CustomerContext'
 import CustomerTable from './components/CustomerTable'
 import NewCustomerDrawer from './components/NewCustomerDrawer'
 import CustomerDetailModal from './components/CustomerDetailModal'
+import * as XLSX from 'xlsx'
+import BulkUploadCustomerDrawer from './components/BulkUploadCustomerDrawer'
 
 const btnPrimary =
   'inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm cursor-pointer'
@@ -43,10 +45,59 @@ export default function CustomersPage() {
   const [searchInput, setSearchInput] = useState(search)
   const [actionsOpen, setActionsOpen] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [bulkDrawerOpen, setBulkDrawerOpen] = useState(false)
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
   const [viewingCustomer, setViewingCustomer] = useState<Customer | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const handleExportCustomers = async () => {
+    try {
+      const token = sessionStorage.getItem('token')
+      const res = await fetch('/api/customers?limit=100000', {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        }
+      })
+      if (!res.ok) throw new Error('Failed to fetch customers for export')
+      const body = await res.json()
+      const allCustomers = body.data?.customers || []
+
+      if (allCustomers.length === 0) {
+        alert('No customers found to export.')
+        return
+      }
+
+      const exportData = allCustomers.map((c: any) => ({
+        "Company Name": c.companyName,
+        "Contact Person": c.contactPerson,
+        "Phone Number": c.phoneNumber,
+        "Email": c.email,
+        "CC Emails": c.ccEmails ? c.ccEmails.join(', ') : "",
+        "Address Line 1": c.addressLine1,
+        "Address Line 2": c.addressLine2 || "",
+        "City": c.city,
+        "State": c.state,
+        "Country": c.country,
+        "Pincode": c.pincode,
+        "Status": c.status,
+        "GST Applicable": c.gstApplicable ? "Yes" : "No",
+        "GSTIN Number": c.gstinNumber || "",
+        "PAN Number": c.panNumber || "",
+        "TDS Applicable": c.tdsApplicable ? "Yes" : "No",
+        "TDS Percentage": c.tdsPercentage || ""
+      }))
+
+      const ws = XLSX.utils.json_to_sheet(exportData)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, "Customers")
+      XLSX.writeFile(wb, "Customers_Export.xlsx")
+      setActionsOpen(false)
+    } catch (err: any) {
+      console.error(err)
+      alert(err.message || 'Failed to export customers')
+    }
+  }
 
   // Filters UI State
   const [showFilters, setShowFilters] = useState(false)
@@ -282,13 +333,19 @@ export default function CustomersPage() {
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setActionsOpen(false)} />
                   <div className="absolute right-0 top-full mt-1.5 w-44 bg-white rounded-xl border border-gray-200 shadow-lg z-20 py-1 overflow-hidden">
-                    <button className="flex items-center gap-2 w-full px-3.5 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                    <button
+                      onClick={handleExportCustomers}
+                      className="flex items-center gap-2 w-full px-3.5 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
+                    >
                       <Download size={14} className="text-gray-400" />
-                      Export CSV
+                      Export Excel
                     </button>
-                    <button className="flex items-center gap-2 w-full px-3.5 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                    <button
+                      onClick={() => { setBulkDrawerOpen(true); setActionsOpen(false); }}
+                      className="flex items-center gap-2 w-full px-3.5 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
+                    >
                       <Upload size={14} className="text-gray-400" />
-                      Import CSV
+                      Import Excel
                     </button>
                   </div>
                 </>
@@ -447,6 +504,7 @@ export default function CustomersPage() {
 
       <NewCustomerDrawer open={drawerOpen} onClose={closeDrawer} onSave={handleSaveCustomer} initialCustomer={editingCustomer} saving={saving} error={error} />
       <CustomerDetailModal customer={viewingCustomer} onClose={() => setViewingCustomer(null)} />
+      <BulkUploadCustomerDrawer open={bulkDrawerOpen} onClose={() => setBulkDrawerOpen(false)} />
     </div>
   )
 }

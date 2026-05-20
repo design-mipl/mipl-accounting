@@ -49,6 +49,7 @@ type CustomerState = {
   restoreCustomer: (id: string) => Promise<void>
   getCustomer: (id: string) => Customer | undefined
   refreshCustomers: () => Promise<void>
+  bulkAddCustomers: (customersList: any[]) => Promise<void>
 }
 
 const CustomerContext = createContext<CustomerState | null>(null)
@@ -248,7 +249,15 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
       return customers.find(c => c.id === id)
     },
     
-    refreshCustomers: () => fetchCustomers(page, limit, search, active, startDate, endDate)
+    refreshCustomers: () => fetchCustomers(page, limit, search, active, startDate, endDate),
+
+    bulkAddCustomers: async (customersList) => {
+      await apiCall('/customers/bulk', {
+        method: 'POST',
+        body: JSON.stringify({ customers: customersList })
+      })
+      await fetchCustomers(page, limit, search, active, startDate, endDate)
+    }
   }
 
   return <CustomerContext.Provider value={value}>{children}</CustomerContext.Provider>
