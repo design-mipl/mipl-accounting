@@ -6,6 +6,7 @@ import { usePayments } from '../../../contexts/PaymentContext';
 import { useVendors } from '../../../contexts/VendorContext';
 import { useEmployees } from '../../../contexts/EmployeeContext';
 import { Payment } from '../../../types/payment';
+import { useToast } from '../../../contexts/ToastContext';
 
 interface BulkUploadDrawerProps {
   open: boolean;
@@ -23,6 +24,7 @@ export default function BulkUploadDrawer({ open, onClose }: BulkUploadDrawerProp
   const { bulkAddPayments } = usePayments();
   const { vendors } = useVendors();
   const { employees } = useEmployees();
+  const { showSuccess, showError } = useToast();
 
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -218,7 +220,9 @@ export default function BulkUploadDrawer({ open, onClose }: BulkUploadDrawerProp
 
       setParsedRows(rows);
     } catch (err: any) {
-      setError(err.message || "Failed to parse Excel file. Please ensure it matches the template format.");
+      const errMsg = err.message || "Failed to parse Excel file. Please ensure it matches the template format.";
+      setError(errMsg);
+      showError(errMsg);
     }
   };
 
@@ -233,16 +237,17 @@ export default function BulkUploadDrawer({ open, onClose }: BulkUploadDrawerProp
   const handleSubmit = async () => {
     const validRows = parsedRows.filter(r => r.isValid);
     if (validRows.length === 0) {
-      setError("No valid rows to upload.");
+      showError("No valid rows to upload.");
       return;
     }
 
     try {
       setSaving(true);
       await bulkAddPayments(validRows.map(r => r.data));
+      showSuccess(`Successfully imported ${validRows.length} payment entries.`);
       onClose();
     } catch (err: any) {
-      setError(err.message || 'An error occurred during bulk upload');
+      showError(err.message || 'An error occurred during bulk upload');
     } finally {
       setSaving(false);
     }

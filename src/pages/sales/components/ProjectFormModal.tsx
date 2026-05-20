@@ -6,6 +6,7 @@ import { PROJECT_TYPES, BILLING_TYPES, round2 } from '../../../types/sales'
 import { useCustomers } from '../../../contexts/CustomerContext'
 import { useSales, newId } from '../../../contexts/SalesContext'
 import { fmtINR } from '../../../utils/currency'
+import { useToast } from '../../../contexts/ToastContext'
 
 type Step = 1 | 2 | 3 | 4
 
@@ -60,6 +61,7 @@ export function ProjectFormModal({ open, onClose }: {
 }) {
   const { upsertProject, setMilestonesForProject } = useSales()
   const { customers } = useCustomers()
+  const { showSuccess, showError } = useToast()
   const [step, setStep] = useState<Step>(1)
   const [form, setForm] = useState<FormData>(blankForm())
 
@@ -106,12 +108,12 @@ export function ProjectFormModal({ open, onClose }: {
 
   function handleCreate() {
     if (!form.customerId || !form.billingType || !form.totalValue || !form.startDate || !form.endDate) {
-      alert('Please fill in all required fields')
+      showError('Please fill in all required fields.', 'Validation Error')
       return
     }
 
     if (form.billingType === 'Milestone Based' && percentageWarning) {
-      alert('Milestone percentages must sum to 100%')
+      showError('Milestone percentages must sum to 100%.', 'Validation Error')
       return
     }
 
@@ -138,6 +140,7 @@ export function ProjectFormModal({ open, onClose }: {
     }
 
     upsertProject(project)
+    showSuccess(`Project "${project.name}" created successfully.`, 'Project Created')
 
     // Create milestones based on billing type
     const milestones: Milestone[] = []

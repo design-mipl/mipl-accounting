@@ -87,10 +87,10 @@ export default function NewEmployeeDrawer({
         </div>
 
         {/* Error message */}
-        {activeError && (
+        {activeError && !activeError.includes('Validation failed') && !activeError.includes('at least 2 characters') && (
           <div className="px-5 py-3 bg-red-50 border-b border-red-100 flex items-start gap-2 text-xs text-red-600">
             <AlertCircle size={14} className="shrink-0 mt-0.5" />
-            <span>{activeError}</span>
+            <span className="whitespace-pre-wrap leading-relaxed">{activeError}</span>
           </div>
         )}
 
@@ -113,6 +113,9 @@ export default function NewEmployeeDrawer({
               className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 placeholder:text-gray-400 transition-shadow"
               autoFocus
             />
+            {activeError && (
+              <p className="mt-1 text-xs text-red-500 font-medium">{activeError}</p>
+            )}
           </div>
         </form>
 

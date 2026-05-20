@@ -3,6 +3,7 @@ import { X, Upload, Download, AlertCircle, FileSpreadsheet, CheckCircle2 } from 
 import * as XLSX from 'xlsx';
 import clsx from 'clsx';
 import { useVendors } from '../../../contexts/VendorContext';
+import { useToast } from '../../../contexts/ToastContext';
 import { Vendor } from '../../../types/vendor';
 
 interface BulkUploadVendorDrawerProps {
@@ -19,6 +20,7 @@ type ParsedRow = {
 
 export default function BulkUploadVendorDrawer({ open, onClose }: BulkUploadVendorDrawerProps) {
   const { bulkAddVendors } = useVendors();
+  const { showSuccess, showError } = useToast();
 
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -393,9 +395,11 @@ export default function BulkUploadVendorDrawer({ open, onClose }: BulkUploadVend
       setSaving(true);
       setError(null);
       await bulkAddVendors(validRows.map(r => r.data));
+      showSuccess(`${validRows.length} vendors imported successfully!`);
       onClose();
     } catch (err: any) {
       setError(err.message || 'An error occurred during bulk upload');
+      showError(err.message || 'An error occurred during bulk upload');
     } finally {
       setSaving(false);
     }

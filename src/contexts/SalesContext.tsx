@@ -8,6 +8,7 @@ import {
   DUMMY_PIS, DUMMY_TIS,
 } from '../data/sales'
 import { useAuth } from './AuthContext'
+import { useToast } from './ToastContext'
 
 // API Helper
 async function apiCall(endpoint: string, options: RequestInit = {}) {
@@ -17,7 +18,7 @@ async function apiCall(endpoint: string, options: RequestInit = {}) {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...options.headers,
   }
-  
+
   const res = await fetch(`/api${endpoint}`, { ...options, headers })
   if (res.status === 401) {
     sessionStorage.removeItem('token')
@@ -28,7 +29,21 @@ async function apiCall(endpoint: string, options: RequestInit = {}) {
   }
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}))
-    throw new Error(errorData.message || 'API request failed')
+    let errMsg = errorData.message || 'API request failed'
+    if (Array.isArray(errorData.errors)) {
+      const details = errorData.errors.map((e: any) => {
+        if (typeof e === 'string') return e;
+        if (e && typeof e === 'object') {
+          const pathStr = Array.isArray(e.path) ? e.path.join('.') : '';
+          return pathStr ? `${pathStr}: ${e.message}` : e.message;
+        }
+        return JSON.stringify(e);
+      }).filter(Boolean);
+      if (details.length > 0) {
+        errMsg = `${errMsg}\n• ${details.join('\n• ')}`;
+      }
+    }
+    throw new Error(errMsg)
   }
   return res.json()
 }
@@ -60,7 +75,7 @@ type SalesState = {
 
   upsertTI: (ti: TaxInvoice) => void
   deleteTI: (id: string) => void
-  
+
   refreshSales: () => Promise<void>
   fetchProjectedSalesPaginated: (params?: {
     page?: number
@@ -398,6 +413,7 @@ export function SalesProvider({ children }: { children: ReactNode }) {
   const [tis, setTIs] = useState<TaxInvoice[]>([])
   const [loading, setLoading] = useState(true)
   const { token } = useAuth()
+  const { showError } = useToast()
 
   const pendingUpdates = useRef<Record<string, { project?: Project; milestones?: Milestone[] }>>({})
   const timeouts = useRef<Record<string, any>>({})
@@ -413,10 +429,10 @@ export function SalesProvider({ children }: { children: ReactNode }) {
       setLoading(true)
       const data = await apiCall('/projected-sales?limit=10000')
       const dbSales = data.data?.projectedSales || []
-      
+
       const mappedProjects = dbSales.map(mapDBProjectedSaleToProject)
       const mappedMilestones: Milestone[] = []
-      
+
       dbSales.forEach((dbSale: any) => {
         const msList = dbSale.milestones || []
         const sortedMs = [...msList].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
@@ -445,7 +461,7 @@ export function SalesProvider({ children }: { children: ReactNode }) {
         apiCall('/invoices/proforma?limit=10000'),
         apiCall('/invoices/tax?limit=10000')
       ])
-      
+
       const mappedPIs: ProformaInvoice[] = (piRes.data?.invoices || []).map((dbPi: any) => ({
         id: dbPi.id,
         piNumber: dbPi.piNumber,
@@ -471,7 +487,7 @@ export function SalesProvider({ children }: { children: ReactNode }) {
         notes: dbPi.notes || '',
         createdAt: dbPi.createdAt
       }))
-      
+
       const mappedTIs: TaxInvoice[] = (tiRes.data?.invoices || []).map((dbTi: any) => ({
         id: dbTi.id,
         tiNumber: dbTi.tiNumber,
@@ -498,7 +514,7 @@ export function SalesProvider({ children }: { children: ReactNode }) {
         notes: dbTi.notes || '',
         createdAt: dbTi.createdAt
       }))
-      
+
       setPIs(mappedPIs)
       setTIs(mappedTIs)
     } catch (err: any) {
@@ -517,10 +533,10 @@ export function SalesProvider({ children }: { children: ReactNode }) {
     }
     const data = await apiCall(`/projected-sales?${query.toString()}`)
     const dbSales = data.data?.projectedSales || []
-    
+
     const mappedProjects = dbSales.map(mapDBProjectedSaleToProject)
     const mappedMilestones: Milestone[] = []
-    
+
     dbSales.forEach((dbSale: any) => {
       const msList = dbSale.milestones || []
       const sortedMs = [...msList].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
@@ -710,7 +726,7 @@ export function SalesProvider({ children }: { children: ReactNode }) {
       await fetchProjectedSales()
     } catch (err: any) {
       console.error('Failed to save project:', err.message)
-      alert('Failed to save project: ' + err.message)
+      showError(err.message, 'Failed to Save Project')
       await fetchProjectedSales()
     }
   }
@@ -756,7 +772,7 @@ export function SalesProvider({ children }: { children: ReactNode }) {
         await fetchProjectedSales()
       } catch (err: any) {
         console.error('Failed to delete project:', err.message)
-        alert('Failed to delete project: ' + err.message)
+        showError(err.message, 'Failed to Delete Project')
       }
     },
 
@@ -780,7 +796,7 @@ export function SalesProvider({ children }: { children: ReactNode }) {
       setAMCs(prev => upsert(prev, a))
       try {
         const isNew = a.id.length <= 10 || !amcs.some(x => x.id === a.id)
-        
+
         const frequencyMap: Record<string, string> = {
           'Monthly': 'MONTHLY',
           'Quarterly': 'QUARTERLY',
@@ -818,7 +834,7 @@ export function SalesProvider({ children }: { children: ReactNode }) {
         await fetchAMCs()
       } catch (err: any) {
         console.error('Failed to save AMC:', err.message)
-        alert('Failed to save AMC: ' + err.message)
+        showError(err.message, 'Failed to Save AMC')
         await fetchAMCs() // Revert on failure
       }
     },
@@ -828,7 +844,7 @@ export function SalesProvider({ children }: { children: ReactNode }) {
         await fetchAMCs()
       } catch (err: any) {
         console.error('Failed to delete AMC:', err.message)
-        alert('Failed to delete AMC: ' + err.message)
+        showError(err.message, 'Failed to Delete AMC')
       }
     },
 
@@ -840,7 +856,7 @@ export function SalesProvider({ children }: { children: ReactNode }) {
       setPIs(prev => upsert(prev, pi))
       try {
         const isNew = pi.id.length <= 10 || !pis.some(x => x.id === pi.id)
-        
+
         // Map frontend status to backend enum value
         let mappedStatus = 'DRAFT'
         if (pi.status) {
@@ -865,7 +881,7 @@ export function SalesProvider({ children }: { children: ReactNode }) {
           amountReceived: pi.amountReceived !== undefined ? Number(pi.amountReceived) : 0,
           status: mappedStatus,
         }
-        
+
         if (isNew) {
           await apiCall('/invoices/proforma', { method: 'POST', body: JSON.stringify(payload) })
         } else {
@@ -874,7 +890,7 @@ export function SalesProvider({ children }: { children: ReactNode }) {
         await fetchInvoices()
       } catch (err: any) {
         console.error('Failed to save PI:', err.message)
-        alert('Failed to save PI: ' + err.message)
+        showError(err.message, 'Failed to Save Proforma Invoice')
         await fetchInvoices() // Revert on failure
       }
     },
@@ -884,7 +900,7 @@ export function SalesProvider({ children }: { children: ReactNode }) {
         await fetchInvoices()
       } catch (err: any) {
         console.error('Failed to delete PI:', err.message)
-        alert('Failed to delete PI: ' + err.message)
+        showError(err.message, 'Failed to Delete Proforma Invoice')
       }
     },
 
@@ -893,7 +909,7 @@ export function SalesProvider({ children }: { children: ReactNode }) {
       setTIs(prev => upsert(prev, ti))
       try {
         const isNew = ti.id.length <= 10 || !tis.some(x => x.id === ti.id)
-        
+
         // Map frontend status to backend enum value
         let mappedStatus = 'GENERATED'
         if (ti.status) {
@@ -916,7 +932,7 @@ export function SalesProvider({ children }: { children: ReactNode }) {
           amountReceived: ti.amountReceived !== undefined ? Number(ti.amountReceived) : 0,
           status: mappedStatus,
         }
-        
+
         if (isNew) {
           if (ti.linkedPiId) {
             await apiCall(`/invoices/tax/generate/${ti.linkedPiId}`, {
@@ -935,7 +951,7 @@ export function SalesProvider({ children }: { children: ReactNode }) {
         await fetchInvoices()
       } catch (err: any) {
         console.error('Failed to save TI:', err.message)
-        alert('Failed to save TI: ' + err.message)
+        showError(err.message, 'Failed to Save Tax Invoice')
         await fetchInvoices() // Revert on failure
       }
     },
@@ -945,10 +961,10 @@ export function SalesProvider({ children }: { children: ReactNode }) {
         await fetchInvoices()
       } catch (err: any) {
         console.error('Failed to delete TI:', err.message)
-        alert('Failed to delete TI: ' + err.message)
+        showError(err.message, 'Failed to Delete Tax Invoice')
       }
     },
-    
+
     refreshSales: async () => {
       await fetchProjectedSales()
       await fetchInvoices()

@@ -18,6 +18,10 @@ import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { UserManagementProvider } from './contexts/UserManagementContext'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import LoginPage from './pages/auth/LoginPage'
+import { VendorProvider } from './contexts/VendorContext'
+import { EmployeeProvider } from './contexts/EmployeeContext'
+import { PaymentProvider } from './contexts/PaymentContext'
+import { ToastProvider } from './contexts/ToastContext'
 
 function AppRoutes() {
   const { token } = useAuth()
@@ -55,28 +59,26 @@ function AppRoutes() {
   )
 }
 
-import { VendorProvider } from './contexts/VendorContext'
-import { EmployeeProvider } from './contexts/EmployeeContext'
-import { PaymentProvider } from './contexts/PaymentContext'
-
 export default function App() {
   return (
-    <AuthProvider>
-      <UserManagementProvider>
-        <CustomerProvider>
-          <VendorProvider>
-            <EmployeeProvider>
-              <PaymentProvider>
-                <SalesProvider>
-                  <BrowserRouter>
-                    <AppRoutes />
-                  </BrowserRouter>
-                </SalesProvider>
-              </PaymentProvider>
-            </EmployeeProvider>
-          </VendorProvider>
-        </CustomerProvider>
-      </UserManagementProvider>
-    </AuthProvider>
+    <ToastProvider>
+      <AuthProvider>
+        <UserManagementProvider>
+          <CustomerProvider>
+            <VendorProvider>
+              <EmployeeProvider>
+                <PaymentProvider>
+                  <SalesProvider>
+                    <BrowserRouter>
+                      <AppRoutes />
+                    </BrowserRouter>
+                  </SalesProvider>
+                </PaymentProvider>
+              </EmployeeProvider>
+            </VendorProvider>
+          </CustomerProvider>
+        </UserManagementProvider>
+      </AuthProvider>
+    </ToastProvider>
   )
 }

@@ -51,16 +51,16 @@ export default function NewVendorDrawer({
         </div>
 
         {/* Error message */}
-        {error && (
+        {error && !error.includes('Validation failed') && (
           <div className="px-5 py-3 bg-red-50 border-b border-red-100 flex items-start gap-2 text-xs text-red-600">
             <AlertCircle size={14} className="shrink-0 mt-0.5" />
-            <span>{error}</span>
+            <span className="whitespace-pre-wrap leading-relaxed">{error}</span>
           </div>
         )}
 
         {/* Form */}
         <div className="flex-1 overflow-hidden">
-          <NewVendorForm ref={formRef} onSave={onSave} onClose={onClose} initialVendor={initialVendor} open={open} />
+          <NewVendorForm ref={formRef} onSave={onSave} onClose={onClose} initialVendor={initialVendor} open={open} error={error} />
         </div>
 
         {/* Footer */}

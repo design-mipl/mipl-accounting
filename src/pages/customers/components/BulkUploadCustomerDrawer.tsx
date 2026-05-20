@@ -3,6 +3,7 @@ import { X, Upload, Download, AlertCircle, FileSpreadsheet, CheckCircle2 } from 
 import * as XLSX from 'xlsx';
 import clsx from 'clsx';
 import { useCustomers } from '../../../contexts/CustomerContext';
+import { useToast } from '../../../contexts/ToastContext';
 import { Customer } from '../../../types/customer';
 
 interface BulkUploadCustomerDrawerProps {
@@ -19,6 +20,7 @@ type ParsedRow = {
 
 export default function BulkUploadCustomerDrawer({ open, onClose }: BulkUploadCustomerDrawerProps) {
   const { bulkAddCustomers } = useCustomers();
+  const { showSuccess, showError } = useToast();
 
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -294,9 +296,11 @@ export default function BulkUploadCustomerDrawer({ open, onClose }: BulkUploadCu
       setSaving(true);
       setError(null);
       await bulkAddCustomers(validRows.map(r => r.data));
+      showSuccess(`${validRows.length} customers imported successfully!`);
       onClose();
     } catch (err: any) {
       setError(err.message || 'An error occurred during bulk upload');
+      showError(err.message || 'An error occurred during bulk upload');
     } finally {
       setSaving(false);
     }

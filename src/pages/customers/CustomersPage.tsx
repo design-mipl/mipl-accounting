@@ -6,6 +6,7 @@ import {
 import clsx from 'clsx'
 import type { Customer } from '../../types/customer'
 import { useCustomers } from '../../contexts/CustomerContext'
+import { useToast } from '../../contexts/ToastContext'
 import CustomerTable from './components/CustomerTable'
 import NewCustomerDrawer from './components/NewCustomerDrawer'
 import CustomerDetailModal from './components/CustomerDetailModal'
@@ -41,6 +42,7 @@ export default function CustomersPage() {
     updateCustomer,
     addCustomer,
   } = useCustomers()
+  const { showSuccess, showError, showWarning } = useToast()
 
   const [searchInput, setSearchInput] = useState(search)
   const [actionsOpen, setActionsOpen] = useState(false)
@@ -64,7 +66,7 @@ export default function CustomersPage() {
       const allCustomers = body.data?.customers || []
 
       if (allCustomers.length === 0) {
-        alert('No customers found to export.')
+        showWarning('No customers found to export.')
         return
       }
 
@@ -93,9 +95,10 @@ export default function CustomersPage() {
       XLSX.utils.book_append_sheet(wb, ws, "Customers")
       XLSX.writeFile(wb, "Customers_Export.xlsx")
       setActionsOpen(false)
+      showSuccess('Customers exported successfully!')
     } catch (err: any) {
       console.error(err)
-      alert(err.message || 'Failed to export customers')
+      showError(err.message || 'Failed to export customers')
     }
   }
 
@@ -161,24 +164,36 @@ export default function CustomersPage() {
   }
 
   function handleDelete(id: string) {
-    deleteCustomer(id).catch(err => {
-      console.error(err)
-      alert(err.message || 'Failed to delete customer')
-    })
+    deleteCustomer(id)
+      .then(() => {
+        showSuccess('Customer deleted successfully')
+      })
+      .catch(err => {
+        console.error(err)
+        showError(err.message || 'Failed to delete customer')
+      })
   }
 
   function handleRestore(id: string) {
-    restoreCustomer(id).catch(err => {
-      console.error(err)
-      alert(err.message || 'Failed to restore customer')
-    })
+    restoreCustomer(id)
+      .then(() => {
+        showSuccess('Customer restored successfully')
+      })
+      .catch(err => {
+        console.error(err)
+        showError(err.message || 'Failed to restore customer')
+      })
   }
 
   function handleStatusChange(id: string, status: 'ACTIVE' | 'INACTIVE') {
-    updateCustomer(id, { status }).catch(err => {
-      console.error(err)
-      alert(err.message || 'Failed to change customer status')
-    })
+    updateCustomer(id, { status })
+      .then(() => {
+        showSuccess(`Customer status changed to ${status.toLowerCase()}`)
+      })
+      .catch(err => {
+        console.error(err)
+        showError(err.message || 'Failed to change customer status')
+      })
   }
 
   async function handleSaveCustomer(customer: Customer, logoFile?: File, newDocs?: any[], deletedDocIds?: string[]) {
@@ -188,13 +203,16 @@ export default function CustomersPage() {
       if (editingCustomer) {
         await updateCustomer(editingCustomer.id, customer, logoFile, newDocs, deletedDocIds)
         setEditingCustomer(null)
+        showSuccess('Customer updated successfully')
       } else {
         await addCustomer(customer, logoFile, newDocs)
+        showSuccess('Customer created successfully')
       }
       setDrawerOpen(false)
     } catch (err: any) {
       console.error(err)
       setError(err.message || 'Failed to save customer')
+      showError(err.message || 'Failed to save customer')
     } finally {
       setSaving(false)
     }

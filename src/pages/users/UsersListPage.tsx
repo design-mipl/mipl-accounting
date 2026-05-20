@@ -21,6 +21,7 @@ import UserFormDrawer from './components/UserFormDrawer';
 import ResetPasswordModal from './components/ResetPasswordModal';
 import RolesPermissionsPage from './RolesPermissionsPage';
 import type { User } from '../../types/user';
+import { useToast } from '../../contexts/ToastContext';
 
 export default function UsersListPage() {
   const {
@@ -44,10 +45,11 @@ export default function UsersListPage() {
   } = useUserManagement();
 
   const { user: currentUser } = useAuth();
-  
+  const { showSuccess, showError, showWarning } = useToast();
+
   const [activeTab, setActiveTab] = useState<'users' | 'roles'>('users');
   const [searchInput, setSearchInput] = useState(search);
-  
+
   // Drawer & Modal States
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -84,7 +86,7 @@ export default function UsersListPage() {
 
   const handleDeleteClick = async (user: User) => {
     if (user.id === currentUser?.id) {
-      alert('You cannot delete your own account.');
+      showWarning('You cannot delete your own account.', 'Action Blocked');
       return;
     }
     if (
@@ -92,22 +94,24 @@ export default function UsersListPage() {
     ) {
       try {
         await deleteUser(user.id);
+        showSuccess(`User "${user.firstName} ${user.lastName}" deleted successfully.`, 'User Deleted');
       } catch (err: any) {
-        alert(err.message || 'Failed to delete user.');
+        showError(err.message || 'Failed to delete user.', 'Delete Failed');
       }
     }
   };
 
   const handleStatusToggle = async (user: User) => {
     if (user.id === currentUser?.id) {
-      alert('You cannot deactivate your own account.');
+      showWarning('You cannot deactivate your own account.', 'Action Blocked');
       return;
     }
     const newStatus = user.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
     try {
       await updateUserStatus(user.id, newStatus);
+      showSuccess(`User "${user.firstName} ${user.lastName}" status updated to ${newStatus.toLowerCase()} successfully.`, 'Status Updated');
     } catch (err: any) {
-      alert(err.message || 'Failed to update status.');
+      showError(err.message || 'Failed to update status.', 'Status Update Failed');
     }
   };
 
@@ -144,22 +148,20 @@ export default function UsersListPage() {
       <div className="flex border-b border-gray-200">
         <button
           onClick={() => setActiveTab('users')}
-          className={`px-5 py-3 text-sm font-semibold border-b-2 transition-all cursor-pointer flex items-center gap-2 ${
-            activeTab === 'users'
+          className={`px-5 py-3 text-sm font-semibold border-b-2 transition-all cursor-pointer flex items-center gap-2 ${activeTab === 'users'
               ? 'border-indigo-600 text-indigo-600'
               : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-          }`}
+            }`}
         >
           <Users size={16} />
           Users Directory
         </button>
         <button
           onClick={() => setActiveTab('roles')}
-          className={`px-5 py-3 text-sm font-semibold border-b-2 transition-all cursor-pointer flex items-center gap-2 ${
-            activeTab === 'roles'
+          className={`px-5 py-3 text-sm font-semibold border-b-2 transition-all cursor-pointer flex items-center gap-2 ${activeTab === 'roles'
               ? 'border-indigo-600 text-indigo-600'
               : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-          }`}
+            }`}
         >
           <ShieldAlert size={16} />
           Roles & Permissions Matrix
@@ -218,7 +220,7 @@ export default function UsersListPage() {
                 </button>
               )}
             </div>
-            
+
             <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
               {totalCount} {totalCount === 1 ? 'user' : 'users'} found
             </div>
@@ -295,11 +297,10 @@ export default function UsersListPage() {
                             <button
                               disabled={isSelf || !canEditUser}
                               onClick={() => handleStatusToggle(item)}
-                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer border ${
-                                item.status === 'ACTIVE'
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer border ${item.status === 'ACTIVE'
                                   ? 'bg-green-50 text-green-700 border-green-100 hover:bg-green-100/50'
                                   : 'bg-red-50 text-red-700 border-red-100 hover:bg-red-100/50'
-                              } disabled:opacity-85 disabled:cursor-not-allowed`}
+                                } disabled:opacity-85 disabled:cursor-not-allowed`}
                             >
                               {item.status === 'ACTIVE' ? (
                                 <>

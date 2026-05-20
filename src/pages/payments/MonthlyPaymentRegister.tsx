@@ -8,6 +8,7 @@ import SummaryCards from './components/SummaryCards'
 import PaymentTable from './components/PaymentTable'
 import PaymentFormDrawer from './components/PaymentFormDrawer'
 import PaymentDetailModal from './components/PaymentDetailModal'
+import { useToast } from '../../contexts/ToastContext'
 
 function formatMonthLabel(ym: string) {
   const [y, m] = ym.split('-').map(Number)
@@ -30,6 +31,7 @@ export default function MonthlyPaymentRegister() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
   })
   const { payments, loading, addPayment, updatePayment, deletePayment } = usePayments()
+  const { showSuccess, showError } = useToast()
   const [search, setSearch] = useState('')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
@@ -74,13 +76,15 @@ export default function MonthlyPaymentRegister() {
     try {
       if (editingPayment) {
         await updatePayment(editingPayment.id, payment)
+        showSuccess('Payment entry updated successfully')
       } else {
         await addPayment(payment)
+        showSuccess('Payment entry created successfully')
       }
       setDrawerOpen(false)
       setEditingPayment(null)
     } catch (err: any) {
-      alert(err.message || 'Failed to save payment')
+      showError(err.message || 'Failed to save payment')
     }
   }
 
@@ -97,8 +101,9 @@ export default function MonthlyPaymentRegister() {
     if (window.confirm('Are you sure you want to delete this payment entry?')) {
       try {
         await deletePayment(id)
+        showSuccess('Payment entry deleted successfully')
       } catch (err: any) {
-        alert(err.message || 'Failed to delete payment')
+        showError(err.message || 'Failed to delete payment')
       }
     }
   }
@@ -106,8 +111,9 @@ export default function MonthlyPaymentRegister() {
   async function handleUpdate(id: string, updates: Partial<Payment>) {
     try {
       await updatePayment(id, updates)
+      showSuccess('Payment status/amount updated successfully')
     } catch (err: any) {
-      alert(err.message || 'Failed to update payment')
+      showError(err.message || 'Failed to update payment')
     }
   }
 

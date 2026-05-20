@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 're
 import clsx from 'clsx'
 import type { Payment, ExpenseType, PartyType, PaymentStatus, DeductionType } from '../../../types/payment'
 import { EXPENSE_TYPES, PARTY_TYPES, PAYMENT_STATUSES, DEDUCTION_TYPES } from '../../../types/payment'
+import { useToast } from '../../../contexts/ToastContext'
 
 type FormTab = 'basic' | 'amount'
 
@@ -60,6 +61,7 @@ const PaymentForm = forwardRef<PaymentFormRef, {
   defaultMonth: string
   mode?: 'create' | 'edit'
 }>(function PaymentForm({ onSave, initialPayment, defaultMonth, mode }, ref) {
+  const { showError } = useToast()
   const [tab, setTab] = useState<FormTab>('basic')
   const [vendors, setVendors] = useState<DropdownVendor[]>([])
   const [employees, setEmployees] = useState<DropdownEmployee[]>([])
@@ -149,19 +151,19 @@ const PaymentForm = forwardRef<PaymentFormRef, {
     const month = form.expenseDate.substring(0, 7)
 
     if (form.partyType === 'Vendor' && !form.partyName) {
-      alert('Please select a vendor')
+      showError('Please select a vendor')
       return
     }
     if (form.partyType === 'Employee' && !form.partyName) {
-      alert('Please select an employee')
+      showError('Please select an employee')
       return
     }
     if ((form.partyType === 'Household' || form.partyType === 'Other') && !form.partyNameInput.trim()) {
-      alert('Please enter a party name')
+      showError('Please enter a party name')
       return
     }
     if (!form.recurring && (!form.baseAmount || parseFloat(form.baseAmount) <= 0)) {
-      alert('Please enter a valid base amount')
+      showError('Please enter a valid base amount')
       return
     }
 

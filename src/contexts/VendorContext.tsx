@@ -22,7 +22,21 @@ async function apiCall(endpoint: string, options: RequestInit = {}) {
   }
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}))
-    throw new Error(errorData.message || 'API request failed')
+    let errMsg = errorData.message || 'API request failed'
+    if (Array.isArray(errorData.errors)) {
+      const details = errorData.errors.map((e: any) => {
+        if (typeof e === 'string') return e;
+        if (e && typeof e === 'object') {
+          const pathStr = Array.isArray(e.path) ? e.path.join('.') : '';
+          return pathStr ? `${pathStr}: ${e.message}` : e.message;
+        }
+        return JSON.stringify(e);
+      }).filter(Boolean);
+      if (details.length > 0) {
+        errMsg = `${errMsg}\n• ${details.join('\n• ')}`;
+      }
+    }
+    throw new Error(errMsg)
   }
   return res.json()
 }

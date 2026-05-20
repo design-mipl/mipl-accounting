@@ -5,6 +5,7 @@ import type { Employee } from '../../types/employee'
 import EmployeeTable from './components/EmployeeTable'
 import NewEmployeeDrawer from './components/NewEmployeeDrawer'
 import clsx from 'clsx'
+import { useToast } from '../../contexts/ToastContext'
 
 const btnPrimary =
   'inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm'
@@ -32,6 +33,8 @@ export default function EmployeesPage() {
     updateEmployee,
     deleteEmployee,
   } = useEmployees()
+
+  const { showSuccess, showError } = useToast()
 
   // Local state for search input (to avoid refetching on every single keypress, or allow instant feel with search trigger)
   const [searchInput, setSearchInput] = useState(search)
@@ -107,9 +110,11 @@ export default function EmployeesPage() {
       setError(null)
       if (editingEmployee) {
         await updateEmployee(editingEmployee.id, name)
+        showSuccess(`Employee "${name}" updated successfully.`, 'Employee Updated')
         setEditingEmployee(null)
       } else {
         await addEmployee(name)
+        showSuccess(`Employee "${name}" created successfully.`, 'Employee Created')
       }
       setDrawerOpen(false)
     } catch (err: any) {
@@ -126,10 +131,16 @@ export default function EmployeesPage() {
   }
 
   function handleDelete(id: string) {
-    deleteEmployee(id).catch(err => {
-      console.error(err)
-      alert(err.message || 'Failed to delete employee')
-    })
+    const employee = employees.find(e => e.id === id)
+    const empName = employee ? employee.name : ''
+    deleteEmployee(id)
+      .then(() => {
+        showSuccess(`Employee "${empName}" deleted successfully.`, 'Employee Deleted')
+      })
+      .catch(err => {
+        console.error(err)
+        showError(err.message || 'Failed to delete employee', 'Failed to Delete Employee')
+      })
   }
 
   function closeDrawer() {

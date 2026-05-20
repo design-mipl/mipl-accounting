@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useVendors } from '../../contexts/VendorContext'
+import { useToast } from '../../contexts/ToastContext'
 import type { Vendor } from '../../types/vendor'
 import VendorTable from './components/VendorTable'
 import NewVendorDrawer from './components/NewVendorDrawer'
@@ -43,6 +44,7 @@ export default function VendorsPage() {
     updateVendor,
     addVendor,
   } = useVendors()
+  const { showSuccess, showError, showWarning } = useToast()
 
   const [searchInput, setSearchInput] = useState(search)
   const [actionsOpen, setActionsOpen] = useState(false)
@@ -116,10 +118,14 @@ export default function VendorsPage() {
   }
 
   function handleDelete(id: string) {
-    deleteVendor(id).catch(err => {
-      console.error(err)
-      alert(err.message || 'Failed to delete vendor')
-    })
+    deleteVendor(id)
+      .then(() => {
+        showSuccess('Vendor deleted successfully')
+      })
+      .catch(err => {
+        console.error(err)
+        showError(err.message || 'Failed to delete vendor')
+      })
   }
 
   const handleExportVendors = async () => {
@@ -135,7 +141,7 @@ export default function VendorsPage() {
       const allVendors = body.data?.vendors || []
 
       if (allVendors.length === 0) {
-        alert('No vendors found to export.')
+        showWarning('No vendors found to export.')
         return
       }
 
@@ -174,24 +180,33 @@ export default function VendorsPage() {
       XLSX.utils.book_append_sheet(wb, ws, "Vendors")
       XLSX.writeFile(wb, "Vendors_Export.xlsx")
       setActionsOpen(false)
+      showSuccess('Vendors exported successfully!')
     } catch (err: any) {
       console.error(err)
-      alert(err.message || 'Failed to export vendors')
+      showError(err.message || 'Failed to export vendors')
     }
   }
 
   function handleRestore(id: string) {
-    restoreVendor(id).catch(err => {
-      console.error(err)
-      alert(err.message || 'Failed to restore vendor')
-    })
+    restoreVendor(id)
+      .then(() => {
+        showSuccess('Vendor restored successfully')
+      })
+      .catch(err => {
+        console.error(err)
+        showError(err.message || 'Failed to restore vendor')
+      })
   }
 
   function handleStatusChange(id: string, status: 'ACTIVE' | 'INACTIVE') {
-    updateVendor(id, { status }).catch(err => {
-      console.error(err)
-      alert(err.message || 'Failed to change vendor status')
-    })
+    updateVendor(id, { status })
+      .then(() => {
+        showSuccess(`Vendor status changed to ${status.toLowerCase()}`)
+      })
+      .catch(err => {
+        console.error(err)
+        showError(err.message || 'Failed to change vendor status')
+      })
   }
 
   async function handleSaveVendor(vendor: Vendor, logoFile?: File, newDocs?: any[], deletedDocIds?: string[]) {
@@ -201,13 +216,16 @@ export default function VendorsPage() {
       if (editingVendor) {
         await updateVendor(editingVendor.id, vendor, logoFile, newDocs, deletedDocIds)
         setEditingVendor(null)
+        showSuccess('Vendor updated successfully')
       } else {
         await addVendor(vendor, logoFile, newDocs)
+        showSuccess('Vendor created successfully')
       }
       setDrawerOpen(false)
     } catch (err: any) {
       console.error(err)
       setError(err.message || 'Failed to save vendor')
+      showError(err.message || 'Failed to save vendor')
     } finally {
       setSaving(false)
     }

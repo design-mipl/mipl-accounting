@@ -3,9 +3,11 @@ import { Shield, Plus, Trash2, Edit3, Lock, AlertCircle, Info } from 'lucide-rea
 import { useUserManagement } from '../../contexts/UserManagementContext';
 import PermissionMatrix from './components/PermissionMatrix';
 import type { Role } from '../../types/user';
+import { useToast } from '../../contexts/ToastContext';
 
 export default function RolesPermissionsPage() {
   const { roles, createRole, deleteRole, loadingRoles } = useUserManagement();
+  const { showSuccess, showError } = useToast();
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   
   // Create Role Form State
@@ -33,6 +35,7 @@ export default function RolesPermissionsPage() {
         roleName: newRoleName.trim(),
         description: newRoleDesc.trim() || undefined,
       });
+      showSuccess(`Role "${newRoleName.trim()}" created successfully.`, 'Role Created');
       setNewRoleName('');
       setNewRoleDesc('');
       setShowCreateModal(false);
@@ -51,11 +54,12 @@ export default function RolesPermissionsPage() {
 
     try {
       await deleteRole(id);
+      showSuccess('Role deleted successfully.', 'Role Deleted');
       if (selectedRole?.id === id) {
         setSelectedRole(null);
       }
     } catch (err: any) {
-      alert(err.message || 'Failed to delete role');
+      showError(err.message || 'Failed to delete role', 'Delete Failed');
     }
   };
 

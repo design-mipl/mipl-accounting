@@ -52,12 +52,12 @@ export default function NewCustomerDrawer({
 
         {/* Form */}
         <div className="flex-1 overflow-hidden">
-          <NewCustomerForm ref={formRef} onSave={onSave} onClose={onClose} initialCustomer={initialCustomer} open={open} />
+          <NewCustomerForm ref={formRef} onSave={onSave} onClose={onClose} initialCustomer={initialCustomer} open={open} error={error} />
         </div>
 
         {/* Error message */}
-        {error && (
-          <div className="px-5 py-2 bg-red-50 border-t border-red-100 text-xs text-red-600">
+        {error && !error.includes('Validation failed') && (
+          <div className="px-5 py-2 bg-red-50 border-t border-red-100 text-xs text-red-600 whitespace-pre-wrap leading-relaxed">
             {error}
           </div>
         )}

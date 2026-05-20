@@ -88,9 +88,53 @@ const STATES_BY_COUNTRY: { [key: string]: string[] } = {
   ],
 }
 
-const NewVendorForm = forwardRef<NewVendorFormRef, { onSave?: (vendor: Vendor, logoFile?: File, newDocs?: any[], deletedDocIds?: string[]) => void; onClose?: () => void; initialVendor?: Vendor | null; open?: boolean }>(
-  function NewVendorForm({ onSave, onClose, initialVendor, open }, ref) {
+const NewVendorForm = forwardRef<NewVendorFormRef, { onSave?: (vendor: Vendor, logoFile?: File, newDocs?: any[], deletedDocIds?: string[]) => void; onClose?: () => void; initialVendor?: Vendor | null; open?: boolean; error?: string | null }>(
+  function NewVendorForm({ onSave, onClose, initialVendor, open, error }, ref) {
   const [tab, setTab] = useState<Tab>('basic')
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    if (!error) {
+      setFieldErrors({})
+      return
+    }
+    const errors: Record<string, string> = {}
+    const lines = error.split('\n')
+    lines.forEach(line => {
+      const clean = line.replace(/^[•\-\*\s]+/, '').trim()
+      const colonIndex = clean.indexOf(':')
+      if (colonIndex > 0) {
+        const field = clean.substring(0, colonIndex).trim()
+        const message = clean.substring(colonIndex + 1).trim()
+        if (field && message) {
+          if (field === 'phoneNumber') errors['phone'] = message
+          else if (field === 'addressLine1') errors['address1'] = message
+          else if (field === 'addressLine2') errors['address2'] = message
+          else if (field === 'gstinNumber') errors['gstin'] = message
+          else if (field === 'panNumber') errors['pan'] = message
+          else if (field === 'bankAccountHolderName') errors['accountHolderName'] = message
+          else if (field === 'bankAccountNumber') errors['accountNumber'] = message
+          else if (field === 'bankIfscCode') errors['ifscCode'] = message
+          else if (field === 'bankSwiftCode') errors['swiftCode'] = message
+          else if (field === 'bankBranchName') errors['branchName'] = message
+          else errors[field] = message
+        }
+      }
+    })
+    setFieldErrors(errors)
+  }, [error])
+
+  const getTabErrors = (tabKey: Tab) => {
+    const tabFields: Record<Tab, string[]> = {
+      basic: ['vendorType', 'companyName', 'vendorName', 'phone', 'email'],
+      tax: ['gstin', 'pan', 'panName', 'tdsSection', 'tdsPercentage'],
+      address: ['address1', 'address2', 'city', 'state', 'country', 'pincode'],
+      bank: ['accountHolderName', 'bankName', 'accountNumber', 'ifscCode', 'swiftCode', 'branchName'],
+      docs: ['documents'],
+    }
+    return tabFields[tabKey]?.filter(field => fieldErrors[field]) || []
+  }
+
   const [form, setForm] = useState<FormData>({
     vendorType: 'company',
     companyName: '',
@@ -346,21 +390,30 @@ const NewVendorForm = forwardRef<NewVendorFormRef, { onSave?: (vendor: Vendor, l
     <div className="h-full flex flex-col bg-white">
       {/* Tabs */}
       <div className="flex border-b border-gray-200 px-5 py-0">
-        {TABS.map(t => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={clsx(
-              'flex-1 flex items-center justify-center gap-1.5 px-1 py-3 text-xs font-medium border-b-2 transition-colors whitespace-nowrap',
-              tab === t.key
-                ? 'text-indigo-600 border-indigo-600'
-                : 'text-gray-500 border-transparent hover:text-gray-700',
-            )}
-          >
-            {t.icon}
-            {t.label}
-          </button>
-        ))}
+        {TABS.map(t => {
+          const errorsOnTab = getTabErrors(t.key)
+          const hasErrors = errorsOnTab.length > 0
+          return (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={clsx(
+                'flex-1 flex items-center justify-center gap-1.5 px-1 py-3 text-xs font-medium border-b-2 transition-colors whitespace-nowrap',
+                tab === t.key
+                  ? 'text-indigo-600 border-indigo-600'
+                  : hasErrors
+                    ? 'text-red-500 border-transparent hover:text-red-600'
+                    : 'text-gray-500 border-transparent hover:text-gray-700',
+              )}
+            >
+              {t.icon}
+              {t.label}
+              {hasErrors && (
+                <span className="ml-1 w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+              )}
+            </button>
+          )
+        })}
       </div>
 
       {/* Form Content */}
@@ -417,6 +470,9 @@ const NewVendorForm = forwardRef<NewVendorFormRef, { onSave?: (vendor: Vendor, l
                   Company
                 </button>
               </div>
+              {fieldErrors.vendorType && (
+                <p className="mt-1 text-xs text-red-500 font-medium">{fieldErrors.vendorType}</p>
+              )}
             </div>
 
             {/* Company Name - show only for Company */}
@@ -430,6 +486,9 @@ const NewVendorForm = forwardRef<NewVendorFormRef, { onSave?: (vendor: Vendor, l
                   placeholder="ABC Corporation Ltd"
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400"
                 />
+                {fieldErrors.companyName && (
+                  <p className="mt-1 text-xs text-red-500 font-medium">{fieldErrors.companyName}</p>
+                )}
               </div>
             )}
 
@@ -443,6 +502,9 @@ const NewVendorForm = forwardRef<NewVendorFormRef, { onSave?: (vendor: Vendor, l
                 placeholder="Full name"
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400"
               />
+              {fieldErrors.vendorName && (
+                <p className="mt-1 text-xs text-red-500 font-medium">{fieldErrors.vendorName}</p>
+              )}
             </div>
 
             {/* Phone */}
@@ -455,6 +517,9 @@ const NewVendorForm = forwardRef<NewVendorFormRef, { onSave?: (vendor: Vendor, l
                 placeholder="+91 9876543210"
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400"
               />
+              {fieldErrors.phone && (
+                <p className="mt-1 text-xs text-red-500 font-medium">{fieldErrors.phone}</p>
+              )}
             </div>
 
             {/* Email */}
@@ -467,6 +532,9 @@ const NewVendorForm = forwardRef<NewVendorFormRef, { onSave?: (vendor: Vendor, l
                 placeholder="vendor@company.com"
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400"
               />
+              {fieldErrors.email && (
+                <p className="mt-1 text-xs text-red-500 font-medium">{fieldErrors.email}</p>
+              )}
             </div>
 
             {/* CC Emails */}
@@ -558,6 +626,9 @@ const NewVendorForm = forwardRef<NewVendorFormRef, { onSave?: (vendor: Vendor, l
                   placeholder="27AABCU9603R1ZX"
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 font-mono"
                 />
+                {fieldErrors.gstin && (
+                  <p className="mt-1 text-xs text-red-500 font-medium">{fieldErrors.gstin}</p>
+                )}
               </div>
             )}
 
@@ -571,6 +642,9 @@ const NewVendorForm = forwardRef<NewVendorFormRef, { onSave?: (vendor: Vendor, l
                 placeholder="AABCU9603R"
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 font-mono"
               />
+              {fieldErrors.pan && (
+                <p className="mt-1 text-xs text-red-500 font-medium">{fieldErrors.pan}</p>
+              )}
             </div>
 
             {/* PAN Name */}
@@ -583,6 +657,9 @@ const NewVendorForm = forwardRef<NewVendorFormRef, { onSave?: (vendor: Vendor, l
                 placeholder="Name as per PAN"
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400"
               />
+              {fieldErrors.panName && (
+                <p className="mt-1 text-xs text-red-500 font-medium">{fieldErrors.panName}</p>
+              )}
             </div>
 
             {/* TDS Applicable */}
@@ -610,6 +687,9 @@ const NewVendorForm = forwardRef<NewVendorFormRef, { onSave?: (vendor: Vendor, l
                     placeholder="194C"
                     className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400"
                   />
+                  {fieldErrors.tdsSection && (
+                    <p className="mt-1 text-xs text-red-500 font-medium">{fieldErrors.tdsSection}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-1.5">TDS Percentage (%)</label>
@@ -620,6 +700,9 @@ const NewVendorForm = forwardRef<NewVendorFormRef, { onSave?: (vendor: Vendor, l
                     placeholder="2"
                     className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400"
                   />
+                  {fieldErrors.tdsPercentage && (
+                    <p className="mt-1 text-xs text-red-500 font-medium">{fieldErrors.tdsPercentage}</p>
+                  )}
                 </div>
               </>
             )}
@@ -638,6 +721,9 @@ const NewVendorForm = forwardRef<NewVendorFormRef, { onSave?: (vendor: Vendor, l
                 placeholder="Street address"
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400"
               />
+              {fieldErrors.address1 && (
+                <p className="mt-1 text-xs text-red-500 font-medium">{fieldErrors.address1}</p>
+              )}
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-700 mb-1.5">Address Line 2</label>
@@ -648,6 +734,9 @@ const NewVendorForm = forwardRef<NewVendorFormRef, { onSave?: (vendor: Vendor, l
                 placeholder="Suite, floor, etc."
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400"
               />
+              {fieldErrors.address2 && (
+                <p className="mt-1 text-xs text-red-500 font-medium">{fieldErrors.address2}</p>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -659,6 +748,9 @@ const NewVendorForm = forwardRef<NewVendorFormRef, { onSave?: (vendor: Vendor, l
                   placeholder="Mumbai"
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400"
                 />
+                {fieldErrors.city && (
+                  <p className="mt-1 text-xs text-red-500 font-medium">{fieldErrors.city}</p>
+                )}
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">State</label>
@@ -672,6 +764,9 @@ const NewVendorForm = forwardRef<NewVendorFormRef, { onSave?: (vendor: Vendor, l
                     <option key={state} value={state}>{state}</option>
                   ))}
                 </select>
+                {fieldErrors.state && (
+                  <p className="mt-1 text-xs text-red-500 font-medium">{fieldErrors.state}</p>
+                )}
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -687,6 +782,9 @@ const NewVendorForm = forwardRef<NewVendorFormRef, { onSave?: (vendor: Vendor, l
                   <option value="UK">UK</option>
                   <option value="Other">Other</option>
                 </select>
+                {fieldErrors.country && (
+                  <p className="mt-1 text-xs text-red-500 font-medium">{fieldErrors.country}</p>
+                )}
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">Pincode</label>
@@ -697,6 +795,9 @@ const NewVendorForm = forwardRef<NewVendorFormRef, { onSave?: (vendor: Vendor, l
                   placeholder="400001"
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400"
                 />
+                {fieldErrors.pincode && (
+                  <p className="mt-1 text-xs text-red-500 font-medium">{fieldErrors.pincode}</p>
+                )}
               </div>
             </div>
           </div>
@@ -714,6 +815,9 @@ const NewVendorForm = forwardRef<NewVendorFormRef, { onSave?: (vendor: Vendor, l
                 placeholder="Name as per bank account"
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400"
               />
+              {fieldErrors.accountHolderName && (
+                <p className="mt-1 text-xs text-red-500 font-medium">{fieldErrors.accountHolderName}</p>
+              )}
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-700 mb-1.5">Bank Name</label>
@@ -724,6 +828,9 @@ const NewVendorForm = forwardRef<NewVendorFormRef, { onSave?: (vendor: Vendor, l
                 placeholder="HDFC Bank"
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400"
               />
+              {fieldErrors.bankName && (
+                <p className="mt-1 text-xs text-red-500 font-medium">{fieldErrors.bankName}</p>
+              )}
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-700 mb-1.5">Account Number</label>
@@ -734,6 +841,9 @@ const NewVendorForm = forwardRef<NewVendorFormRef, { onSave?: (vendor: Vendor, l
                 placeholder="Account number"
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 font-mono"
               />
+              {fieldErrors.accountNumber && (
+                <p className="mt-1 text-xs text-red-500 font-medium">{fieldErrors.accountNumber}</p>
+              )}
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-700 mb-1.5">Confirm Account Number</label>
@@ -755,6 +865,9 @@ const NewVendorForm = forwardRef<NewVendorFormRef, { onSave?: (vendor: Vendor, l
                   placeholder="HDFC0001234"
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 font-mono"
                 />
+                {fieldErrors.ifscCode && (
+                  <p className="mt-1 text-xs text-red-500 font-medium">{fieldErrors.ifscCode}</p>
+                )}
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">SWIFT Code</label>
@@ -765,6 +878,9 @@ const NewVendorForm = forwardRef<NewVendorFormRef, { onSave?: (vendor: Vendor, l
                   placeholder="HDBCINBB"
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 font-mono"
                 />
+                {fieldErrors.swiftCode && (
+                  <p className="mt-1 text-xs text-red-500 font-medium">{fieldErrors.swiftCode}</p>
+                )}
               </div>
             </div>
             <div>
@@ -776,6 +892,9 @@ const NewVendorForm = forwardRef<NewVendorFormRef, { onSave?: (vendor: Vendor, l
                 placeholder="Branch name"
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400"
               />
+              {fieldErrors.branchName && (
+                <p className="mt-1 text-xs text-red-500 font-medium">{fieldErrors.branchName}</p>
+              )}
             </div>
           </div>
         )}
