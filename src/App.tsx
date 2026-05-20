@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import AppLayout from './components/layout/AppLayout'
 import CustomersPage from './pages/customers/CustomersPage'
 import VendorsPage from './pages/vendors/VendorsPage'
+import EmployeesPage from './pages/employees/EmployeesPage'
 import MonthlyPaymentRegister from './pages/payments/MonthlyPaymentRegister'
 import ProjectsPage from './pages/sales/ProjectsPage'
 import AMCTrackerPage from './pages/sales/AMCTrackerPage'
@@ -37,6 +38,7 @@ function AppRoutes() {
           <Route path="expenses/monthly-payment" element={<MonthlyPaymentRegister />} />
 
           <Route path="vendors" element={<VendorsPage />} />
+          <Route path="employees" element={<EmployeesPage />} />
           <Route path="settings" element={<PlaceholderPage title="Settings" />} />
         </Route>
       </Route>
@@ -45,6 +47,7 @@ function AppRoutes() {
 }
 
 import { VendorProvider } from './contexts/VendorContext'
+import { EmployeeProvider } from './contexts/EmployeeContext'
 import { PaymentProvider } from './contexts/PaymentContext'
 
 export default function App() {
@@ -52,13 +55,15 @@ export default function App() {
     <AuthProvider>
       <CustomerProvider>
         <VendorProvider>
-          <PaymentProvider>
-            <SalesProvider>
-              <BrowserRouter>
-                <AppRoutes />
-              </BrowserRouter>
-            </SalesProvider>
-          </PaymentProvider>
+          <EmployeeProvider>
+            <PaymentProvider>
+              <SalesProvider>
+                <BrowserRouter>
+                  <AppRoutes />
+                </BrowserRouter>
+              </SalesProvider>
+            </PaymentProvider>
+          </EmployeeProvider>
         </VendorProvider>
       </CustomerProvider>
     </AuthProvider>

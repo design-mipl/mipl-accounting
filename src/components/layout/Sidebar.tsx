@@ -33,6 +33,7 @@ const NAV_ITEMS: NavItem[] = [
   },
   { label: 'Customers', icon: <Users size={16} />, path: '/customers' },
   { label: 'Vendors', icon: <Truck size={16} />, path: '/vendors' },
+  { label: 'Employees', icon: <UserPlus size={16} />, path: '/employees' },
 ]
 
 const BOTTOM_ITEMS: NavItem[] = [

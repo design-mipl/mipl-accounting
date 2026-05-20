@@ -159,7 +159,7 @@ const PaymentForm = forwardRef<PaymentFormRef, {
       alert('Please enter a party name')
       return
     }
-    if (!form.baseAmount || parseFloat(form.baseAmount) <= 0) {
+    if (!form.recurring && (!form.baseAmount || parseFloat(form.baseAmount) <= 0)) {
       alert('Please enter a valid base amount')
       return
     }
@@ -340,7 +340,7 @@ const PaymentForm = forwardRef<PaymentFormRef, {
         {tab === 'amount' && (
           <>
             <div>
-              <label className={labelCls}>Base Amount *</label>
+              <label className={labelCls}>Base Amount{!form.recurring && ' *'}</label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">₹</span>
                 <input
