@@ -13,10 +13,11 @@ import { useToast } from './ToastContext'
 // API Helper
 async function apiCall(endpoint: string, options: RequestInit = {}) {
   const token = sessionStorage.getItem('token')
-  const headers = {
-    'Content-Type': 'application/json',
+  const isFormData = options.body instanceof FormData
+  const headers: Record<string, string> = {
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...options.headers,
+    ...options.headers as Record<string, string>,
   }
 
   const res = await fetch(`/api${endpoint}`, { ...options, headers })
@@ -70,11 +71,11 @@ type SalesState = {
   upsertAMCCycle: (c: AMCBillingCycle) => void
   deleteAMCCycle: (id: string) => void
 
-  upsertPI: (pi: ProformaInvoice) => void
-  deletePI: (id: string) => void
+  upsertPI: (pi: ProformaInvoice, file?: File) => Promise<void>
+  deletePI: (id: string) => Promise<void>
 
-  upsertTI: (ti: TaxInvoice) => void
-  deleteTI: (id: string) => void
+  upsertTI: (ti: TaxInvoice, file?: File) => Promise<void>
+  deleteTI: (id: string) => Promise<void>
 
   refreshSales: () => Promise<void>
   fetchProjectedSalesPaginated: (params?: {
@@ -851,7 +852,7 @@ export function SalesProvider({ children }: { children: ReactNode }) {
     upsertAMCCycle: c => setAMCCycles(prev => upsert(prev, c)),
     deleteAMCCycle: id => setAMCCycles(prev => prev.filter(c => c.id !== id)),
 
-    upsertPI: async (pi) => {
+    upsertPI: async (pi, file) => {
       // Optimistic update
       setPIs(prev => upsert(prev, pi))
       try {
@@ -882,16 +883,38 @@ export function SalesProvider({ children }: { children: ReactNode }) {
           status: mappedStatus,
         }
 
+        let savedPiId = pi.id
         if (isNew) {
-          await apiCall('/invoices/proforma', { method: 'POST', body: JSON.stringify(payload) })
+          const res = await apiCall('/invoices/proforma', { method: 'POST', body: JSON.stringify(payload) })
+          if (res.success && res.data?.id) {
+            savedPiId = res.data.id
+          }
         } else {
           await apiCall(`/invoices/proforma/${pi.id}`, { method: 'PUT', body: JSON.stringify(payload) })
         }
+
+        // Handle file uploads or deletions
+        if (file) {
+          const formData = new FormData()
+          formData.append('file', file)
+          await apiCall(`/invoices/proforma/${savedPiId}/file`, {
+            method: 'POST',
+            body: formData
+          })
+        } else if (!pi.fileName && !isNew) {
+          // If file was cleared, delete it
+          const originalPi = pis.find(x => x.id === pi.id)
+          if (originalPi?.fileName) {
+            await apiCall(`/invoices/proforma/${pi.id}/file`, { method: 'DELETE' })
+          }
+        }
+
         await fetchInvoices()
       } catch (err: any) {
         console.error('Failed to save PI:', err.message)
         showError(err.message, 'Failed to Save Proforma Invoice')
         await fetchInvoices() // Revert on failure
+        throw err
       }
     },
     deletePI: async (id) => {
@@ -904,7 +927,7 @@ export function SalesProvider({ children }: { children: ReactNode }) {
       }
     },
 
-    upsertTI: async (ti) => {
+    upsertTI: async (ti, file) => {
       // Optimistic update
       setTIs(prev => upsert(prev, ti))
       try {
@@ -933,26 +956,51 @@ export function SalesProvider({ children }: { children: ReactNode }) {
           status: mappedStatus,
         }
 
+        let savedTiId = ti.id
         if (isNew) {
           if (ti.linkedPiId) {
-            await apiCall(`/invoices/tax/generate/${ti.linkedPiId}`, {
+            const res = await apiCall(`/invoices/tax/generate/${ti.linkedPiId}`, {
               method: 'POST',
               body: JSON.stringify({
                 tiDate: ti.tiDate,
                 notes: ti.notes,
               }),
             })
+            if (res.success && res.data?.id) {
+              savedTiId = res.data.id
+            }
           } else {
-            await apiCall('/invoices/tax', { method: 'POST', body: JSON.stringify(payload) })
+            const res = await apiCall('/invoices/tax', { method: 'POST', body: JSON.stringify(payload) })
+            if (res.success && res.data?.id) {
+              savedTiId = res.data.id
+            }
           }
         } else {
           await apiCall(`/invoices/tax/${ti.id}`, { method: 'PUT', body: JSON.stringify(payload) })
         }
+
+        // Handle file uploads or deletions
+        if (file) {
+          const formData = new FormData()
+          formData.append('file', file)
+          await apiCall(`/invoices/tax/${savedTiId}/file`, {
+            method: 'POST',
+            body: formData
+          })
+        } else if (!ti.fileName && !isNew) {
+          // If file was cleared, delete it
+          const originalTi = tis.find(x => x.id === ti.id)
+          if (originalTi?.fileName) {
+            await apiCall(`/invoices/tax/${ti.id}/file`, { method: 'DELETE' })
+          }
+        }
+
         await fetchInvoices()
       } catch (err: any) {
         console.error('Failed to save TI:', err.message)
         showError(err.message, 'Failed to Save Tax Invoice')
         await fetchInvoices() // Revert on failure
+        throw err
       }
     },
     deleteTI: async (id) => {

@@ -157,8 +157,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      {/* Toast container overlay */}
-      <div className="fixed top-5 right-5 z-9999 flex flex-col gap-3 w-[360px] max-w-full pointer-events-none">
+      {/* Toast container overlay — highest z-index on the entire site */}
+      <div
+        className="fixed top-5 right-5 z-toast flex flex-col gap-3 w-[360px] max-w-full pointer-events-none"
+        style={{ zIndex: 9999 }}
+      >
         {toasts.map((toast) => (
           <ToastItem key={toast.id} toast={toast} onRemove={removeToast} />
         ))}

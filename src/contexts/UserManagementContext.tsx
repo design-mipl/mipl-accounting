@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback, type ReactNode } from 'react';
 import type { User, Role, RolePermission, UserStatus } from '../types/user';
 import { useAuth } from './AuthContext';
 
@@ -91,14 +91,16 @@ export function UserManagementProvider({ children }: { children: ReactNode }) {
 
   const { token } = useAuth();
 
-  const fetchUsers = async (
-    currentPage = page,
-    currentLimit = limit,
-    currentSearch = search,
-    currentRoleId = roleId,
-    currentStatus = status
-  ) => {
-    if (!token) {
+  // Refs always hold the latest filter/pagination state — prevents stale closure bugs
+  // when fetchUsers is called from mutation callbacks (createUser, deleteUser, etc.)
+  const filtersRef = useRef({ page, limit, search, roleId, status, token });
+  useEffect(() => {
+    filtersRef.current = { page, limit, search, roleId, status, token };
+  }, [page, limit, search, roleId, status, token]);
+
+  const fetchUsers = useCallback(async () => {
+    const { page: p, limit: l, search: s, roleId: r, status: st, token: t } = filtersRef.current;
+    if (!t) {
       setUsers([]);
       setLoadingUsers(false);
       return;
@@ -106,11 +108,11 @@ export function UserManagementProvider({ children }: { children: ReactNode }) {
     try {
       setLoadingUsers(true);
       const params = new URLSearchParams();
-      params.append('page', String(currentPage));
-      params.append('limit', String(currentLimit));
-      if (currentSearch.trim()) params.append('search', currentSearch.trim());
-      if (currentRoleId) params.append('roleId', currentRoleId);
-      if (currentStatus) params.append('status', currentStatus);
+      params.append('page', String(p));
+      params.append('limit', String(l));
+      if (s.trim()) params.append('search', s.trim());
+      if (r) params.append('roleId', r);
+      if (st) params.append('status', st);
 
       const data = await apiCall(`/users?${params.toString()}`);
       setUsers(data.data?.users || []);
@@ -121,10 +123,10 @@ export function UserManagementProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoadingUsers(false);
     }
-  };
+  }, []); // stable — reads latest values via ref
 
-  const fetchRoles = async () => {
-    if (!token) {
+  const fetchRoles = useCallback(async () => {
+    if (!filtersRef.current.token) {
       setRoles([]);
       setLoadingRoles(false);
       return;
@@ -138,15 +140,16 @@ export function UserManagementProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoadingRoles(false);
     }
-  };
+  }, []);
 
+  // Re-fetch users whenever any filter/pagination state or token changes
   useEffect(() => {
-    fetchUsers(page, limit, search, roleId, status);
-  }, [token, page, limit, search, roleId, status]);
+    fetchUsers();
+  }, [token, page, limit, search, roleId, status, fetchUsers]);
 
   useEffect(() => {
     fetchRoles();
-  }, [token]);
+  }, [token, fetchRoles]);
 
   const setPage = (p: number) => {
     setPageState(p);
@@ -189,7 +192,7 @@ export function UserManagementProvider({ children }: { children: ReactNode }) {
     setSearch,
     setRoleId,
     setStatus,
-    fetchUsers: () => fetchUsers(page, limit, search, roleId, status),
+    fetchUsers,
     fetchRoles,
 
     createUser: async (data) => {
@@ -197,7 +200,7 @@ export function UserManagementProvider({ children }: { children: ReactNode }) {
         method: 'POST',
         body: JSON.stringify(data),
       });
-      await fetchUsers(page, limit, search, roleId, status);
+      await fetchUsers();
     },
 
     updateUser: async (id, data) => {
@@ -205,7 +208,7 @@ export function UserManagementProvider({ children }: { children: ReactNode }) {
         method: 'PUT',
         body: JSON.stringify(data),
       });
-      await fetchUsers(page, limit, search, roleId, status);
+      await fetchUsers();
     },
 
     updateUserStatus: async (id, newStatus) => {
@@ -213,18 +216,20 @@ export function UserManagementProvider({ children }: { children: ReactNode }) {
         method: 'PUT',
         body: JSON.stringify({ status: newStatus }),
       });
-      await fetchUsers(page, limit, search, roleId, status);
+      await fetchUsers();
     },
 
     deleteUser: async (id) => {
       await apiCall(`/users/${id}`, {
         method: 'DELETE',
       });
-      const newCount = totalCount - 1;
-      const newTotalPages = Math.ceil(newCount / limit) || 1;
-      const targetPage = page > newTotalPages ? newTotalPages : page;
+      const newTotalPages = Math.ceil((totalCount - 1) / filtersRef.current.limit) || 1;
+      const targetPage = filtersRef.current.page > newTotalPages ? newTotalPages : filtersRef.current.page;
       setPageState(targetPage);
-      await fetchUsers(targetPage, limit, search, roleId, status);
+      // fetchUsers will be triggered by the page state change (or call directly if page didn't change)
+      if (targetPage === filtersRef.current.page) {
+        await fetchUsers();
+      }
     },
 
     resetPassword: async (id, newPass) => {

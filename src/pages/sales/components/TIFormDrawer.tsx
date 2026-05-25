@@ -57,6 +57,8 @@ export function TIFormDrawer({ open, onClose, initial, fromPI }: {
   const { pis, tis, projects, milestones, upsertTI } = useSales()
   const { customers } = useCustomers()
   const [form, setForm] = useState<Form>(blankForm())
+  const [selectedFile, setSelectedFile] = useState<File | undefined>(undefined)
+  const [saving, setSaving] = useState(false)
   const SALES_CUSTOMERS = useMemo(() => {
     return customers
       .filter(c => c.status === 'ACTIVE' || c.id === form.clientId || c.id === initial?.clientId)
@@ -64,6 +66,7 @@ export function TIFormDrawer({ open, onClose, initial, fromPI }: {
   }, [customers, form.clientId, initial])
 
   useEffect(() => {
+    setSelectedFile(undefined)
     if (initial) {
       setForm({
         tiNumber: initial.tiNumber, tiDate: initial.tiDate,
@@ -139,7 +142,7 @@ export function TIFormDrawer({ open, onClose, initial, fromPI }: {
   const expectedReceipt = round2(grossAmount - tdsAmount)
   const outstanding = round2(expectedReceipt - received)
 
-  function save() {
+  async function save() {
     const cust = SALES_CUSTOMERS.find(c => c.id === form.clientId)
     const linkedPI = pis.find(p => p.id === form.linkedPiId)
     const proj = projects.find(p => p.id === form.projectId)
@@ -173,8 +176,15 @@ export function TIFormDrawer({ open, onClose, initial, fromPI }: {
       notes: form.notes,
       createdAt: initial?.createdAt ?? new Date().toISOString(),
     }
-    upsertTI(ti)
-    onClose()
+    try {
+      setSaving(true)
+      await upsertTI(ti, selectedFile)
+      onClose()
+    } catch (err) {
+      // apiCall handles context showing toast error
+    } finally {
+      setSaving(false)
+    }
   }
 
   if (!open) return null
@@ -341,7 +351,10 @@ export function TIFormDrawer({ open, onClose, initial, fromPI }: {
 
           <div>
             <label className={labelCls}>Tax Invoice File</label>
-            <FileUpload fileName={form.fileName} onChange={n => set('fileName', n)} label="Attach tax invoice document" />
+            <FileUpload fileName={form.fileName} file={selectedFile} onChange={(n, f) => {
+              set('fileName', n)
+              setSelectedFile(f)
+            }} label="Attach tax invoice document" />
           </div>
 
           <div>
@@ -351,9 +364,9 @@ export function TIFormDrawer({ open, onClose, initial, fromPI }: {
         </div>
 
         <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-gray-200 bg-gray-50 shrink-0">
-          <button onClick={onClose} className="px-3.5 py-2 bg-white hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg border border-gray-200">Cancel</button>
-          <button onClick={save} className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg">
-            {initial ? 'Update Tax Invoice' : 'Save Tax Invoice'}
+          <button onClick={onClose} disabled={saving} className="px-3.5 py-2 bg-white hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg border border-gray-200 disabled:opacity-50">Cancel</button>
+          <button onClick={save} disabled={saving} className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg disabled:opacity-50">
+            {saving ? 'Saving...' : initial ? 'Update Tax Invoice' : 'Save Tax Invoice'}
           </button>
         </div>
       </div>
