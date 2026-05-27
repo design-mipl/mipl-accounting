@@ -4,6 +4,7 @@ import { useUserManagement } from '../../contexts/UserManagementContext';
 import PermissionMatrix from './components/PermissionMatrix';
 import type { Role } from '../../types/user';
 import { useToast } from '../../contexts/ToastContext';
+import DeleteConfirmationModal from '../../components/common/DeleteConfirmationModal';
 
 export default function RolesPermissionsPage() {
   const { roles, createRole, deleteRole, loadingRoles } = useUserManagement();
@@ -16,6 +17,10 @@ export default function RolesPermissionsPage() {
   const [newRoleDesc, setNewRoleDesc] = useState('');
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+
+  // Delete modal state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deletingRole, setDeletingRole] = useState<Role | null>(null);
 
   // Sync selected role when roles list updates
   const currentRole = roles.find((r) => r.id === selectedRole?.id) || roles[0] || null;
@@ -46,20 +51,28 @@ export default function RolesPermissionsPage() {
     }
   };
 
-  const handleDeleteRole = async (id: string, e: React.MouseEvent) => {
+  const handleDeleteRole = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!window.confirm('Are you sure you want to delete this role? This action cannot be undone.')) {
-      return;
+    const roleToDelete = roles.find(r => r.id === id);
+    if (roleToDelete) {
+      setDeletingRole(roleToDelete);
+      setDeleteModalOpen(true);
     }
+  };
 
+  const handleDeleteConfirm = async (isHardDelete: boolean) => {
+    if (!deletingRole) return;
     try {
-      await deleteRole(id);
-      showSuccess('Role deleted successfully.', 'Role Deleted');
-      if (selectedRole?.id === id) {
+      await deleteRole(deletingRole.id, isHardDelete);
+      showSuccess(isHardDelete ? 'Role permanently deleted.' : 'Role soft deleted successfully.', 'Role Deleted');
+      if (selectedRole?.id === deletingRole.id) {
         setSelectedRole(null);
       }
     } catch (err: any) {
       showError(err.message || 'Failed to delete role', 'Delete Failed');
+    } finally {
+      setDeleteModalOpen(false);
+      setDeletingRole(null);
     }
   };
 
@@ -212,6 +225,15 @@ export default function RolesPermissionsPage() {
           </div>
         </div>
       )}
+
+      <DeleteConfirmationModal
+        isOpen={deleteModalOpen}
+        title="Delete Role"
+        message="Choose how you want to delete this role. Soft delete preserves associated historical data. Hard delete is permanent."
+        itemName={deletingRole?.roleName || ''}
+        onClose={() => { setDeleteModalOpen(false); setDeletingRole(null); }}
+        onConfirm={handleDeleteConfirm}
+      />
     </div>
   );
 }

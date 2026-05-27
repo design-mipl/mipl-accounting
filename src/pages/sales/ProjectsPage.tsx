@@ -10,6 +10,8 @@ import { StatusBadge, projectStatusTone } from './components/StatusBadge'
 import { ProjectFormDrawer } from './components/ProjectFormDrawer'
 import { ProjectDetailDrawer } from './components/ProjectDetailDrawer'
 import { PIFormDrawer } from './components/PIFormDrawer'
+import DeleteConfirmationModal from '../../components/common/DeleteConfirmationModal'
+import { useToast } from '../../contexts/ToastContext'
 
 type Tab = 'upcoming' | 'overview'
 
@@ -61,6 +63,7 @@ const btnSecondary =
 export default function ProjectsPage() {
   const { projects, milestones, pis, deleteProject, fetchProjectedSalesPaginated } = useSales()
   const { customers } = useCustomers()
+  const { showSuccess, showError } = useToast()
   const [tab, setTab] = useState<Tab>('upcoming')
 
   const SALES_CUSTOMERS = useMemo(() => {
@@ -100,6 +103,11 @@ export default function ProjectsPage() {
   const [editProject, setEditProject] = useState<Project | null>(null)
   const [viewProject, setViewProject] = useState<Project | null>(null)
   const [piPrefill, setPiPrefill] = useState<PIFormPrefill | null>(null)
+
+  // Delete modal state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null)
+  const [deletingProjectName, setDeletingProjectName] = useState<string>('')
 
   // Debounced search input
   useEffect(() => {
@@ -302,6 +310,25 @@ export default function ProjectsPage() {
   const activePageNum = tab === 'upcoming' ? upcomingPage : page
   for (let i = 1; i <= maxPagesToShow; i++) {
     pageNumbers.push(i)
+  }
+
+  const handleDeleteClick = (project: Project) => {
+    setDeletingProjectId(project.id)
+    setDeletingProjectName(project.name)
+    setDeleteModalOpen(true)
+  }
+
+  const handleDeleteConfirm = async (isHardDelete: boolean) => {
+    if (!deletingProjectId) return
+    try {
+      await deleteProject(deletingProjectId, isHardDelete)
+      showSuccess(isHardDelete ? 'Project permanently deleted.' : 'Project soft deleted successfully.', 'Project Deleted')
+    } catch (err: any) {
+      showError(err.message || 'Failed to delete project', 'Delete Failed')
+    } finally {
+      setDeleteModalOpen(false)
+      setDeletingProjectId(null)
+    }
   }
 
   const isFilteringActive = searchInput || fCustomer || fType || fStatus || preset !== 'all' || customStart || customEnd
@@ -540,7 +567,7 @@ export default function ProjectsPage() {
                         <div className="flex items-center justify-end gap-0.5">
                           <button onClick={() => setViewProject(p)} title="View / Manage" className="p-1.5 rounded hover:bg-indigo-50 text-gray-400 hover:text-indigo-600 cursor-pointer"><Eye size={13} /></button>
                           <button onClick={() => { setEditProject(p); setFormOpen(true) }} title="Edit" className="p-1.5 rounded hover:bg-amber-50 text-gray-400 hover:text-amber-600 cursor-pointer"><Pencil size={13} /></button>
-                          <button onClick={() => { if (confirm(`Delete project "${p.name}"?`)) deleteProject(p.id) }} title="Delete" className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-600 cursor-pointer"><Trash2 size={13} /></button>
+                          <button onClick={() => handleDeleteClick(p)} title="Delete" className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-600 cursor-pointer"><Trash2 size={13} /></button>
                         </div>
                       </td>
                     </tr>
@@ -642,6 +669,14 @@ export default function ProjectsPage() {
         open={!!piPrefill}
         onClose={() => setPiPrefill(null)}
         prefill={piPrefill || undefined}
+      />
+      <DeleteConfirmationModal
+        isOpen={deleteModalOpen}
+        title="Delete Project"
+        message="Choose how you want to delete this project. Soft delete preserves associated historical data. Hard delete is permanent."
+        itemName={deletingProjectName}
+        onClose={() => { setDeleteModalOpen(false); setDeletingProjectId(null); }}
+        onConfirm={handleDeleteConfirm}
       />
     </div>
   )

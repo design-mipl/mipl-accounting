@@ -59,23 +59,23 @@ type SalesState = {
   loading: boolean
 
   upsertProject: (p: Project) => void
-  deleteProject: (id: string) => void
+  deleteProject: (id: string, isHardDelete?: boolean) => Promise<void>
 
   upsertMilestone: (m: Milestone) => void
   deleteMilestone: (id: string) => void
   setMilestonesForProject: (projectId: string, milestones: Milestone[]) => void
 
   upsertAMC: (a: AMC) => Promise<void>
-  deleteAMC: (id: string) => Promise<void>
+  deleteAMC: (id: string, isHardDelete?: boolean) => Promise<void>
 
   upsertAMCCycle: (c: AMCBillingCycle) => void
   deleteAMCCycle: (id: string) => void
 
   upsertPI: (pi: ProformaInvoice, file?: File) => Promise<void>
-  deletePI: (id: string) => Promise<void>
+  deletePI: (id: string, isHardDelete?: boolean) => Promise<void>
 
   upsertTI: (ti: TaxInvoice, file?: File) => Promise<void>
-  deleteTI: (id: string) => Promise<void>
+  deleteTI: (id: string, isHardDelete?: boolean) => Promise<void>
 
   refreshSales: () => Promise<void>
   fetchProjectedSalesPaginated: (params?: {
@@ -765,9 +765,10 @@ export function SalesProvider({ children }: { children: ReactNode }) {
       setProjects(prev => upsert(prev, p))
       queueProjectUpdate(p.id, { project: p })
     },
-    deleteProject: async (id) => {
+    deleteProject: async (id, isHardDelete = false) => {
       try {
-        await apiCall(`/projected-sales/${id}`, {
+        const qs = isHardDelete ? '?hard=true' : ''
+        await apiCall(`/projected-sales/${id}${qs}`, {
           method: 'DELETE',
         })
         await fetchProjectedSales()
@@ -839,9 +840,10 @@ export function SalesProvider({ children }: { children: ReactNode }) {
         await fetchAMCs() // Revert on failure
       }
     },
-    deleteAMC: async (id) => {
+    deleteAMC: async (id, isHardDelete = false) => {
       try {
-        await apiCall(`/amcs/${id}`, { method: 'DELETE' })
+        const qs = isHardDelete ? '?hard=true' : ''
+        await apiCall(`/amcs/${id}${qs}`, { method: 'DELETE' })
         await fetchAMCs()
       } catch (err: any) {
         console.error('Failed to delete AMC:', err.message)
@@ -917,9 +919,10 @@ export function SalesProvider({ children }: { children: ReactNode }) {
         throw err
       }
     },
-    deletePI: async (id) => {
+    deletePI: async (id, isHardDelete = false) => {
       try {
-        await apiCall(`/invoices/proforma/${id}`, { method: 'DELETE' })
+        const qs = isHardDelete ? '?hard=true' : ''
+        await apiCall(`/invoices/proforma/${id}${qs}`, { method: 'DELETE' })
         await fetchInvoices()
       } catch (err: any) {
         console.error('Failed to delete PI:', err.message)
@@ -1003,9 +1006,10 @@ export function SalesProvider({ children }: { children: ReactNode }) {
         throw err
       }
     },
-    deleteTI: async (id) => {
+    deleteTI: async (id, isHardDelete = false) => {
       try {
-        await apiCall(`/invoices/tax/${id}`, { method: 'DELETE' })
+        const qs = isHardDelete ? '?hard=true' : ''
+        await apiCall(`/invoices/tax/${id}${qs}`, { method: 'DELETE' })
         await fetchInvoices()
       } catch (err: any) {
         console.error('Failed to delete TI:', err.message)

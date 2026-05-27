@@ -56,7 +56,7 @@ type EmployeeState = {
   setDateRange: (start: string, end: string) => void
   addEmployee: (name: string) => Promise<void>
   updateEmployee: (id: string, name: string) => Promise<void>
-  deleteEmployee: (id: string) => Promise<void>
+  deleteEmployee: (id: string, isHardDelete?: boolean) => Promise<void>
   getEmployee: (id: string) => Employee | undefined
   refreshEmployees: () => Promise<void>
 }
@@ -160,8 +160,9 @@ export function EmployeeProvider({ children }: { children: ReactNode }) {
       await fetchEmployees(page, limit, search, startDate, endDate)
     },
 
-    deleteEmployee: async (id: string) => {
-      await apiCall(`/employees/${id}`, { method: 'DELETE' })
+    deleteEmployee: async (id: string, isHardDelete = false) => {
+      const qs = isHardDelete ? '?hard=true' : '';
+      await apiCall(`/employees/${id}${qs}`, { method: 'DELETE' })
       // If we are deleting the last item on the page, roll back to the previous page
       const newCount = totalCount - 1
       const newTotalPages = Math.ceil(newCount / limit) || 1

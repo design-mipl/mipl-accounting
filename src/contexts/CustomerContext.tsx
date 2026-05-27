@@ -59,7 +59,7 @@ type CustomerState = {
   setActive: (active: string) => void
   addCustomer: (customer: any, logoFile?: File, newDocs?: any[]) => Promise<void>
   updateCustomer: (id: string, updates: Partial<Customer>, logoFile?: File, newDocs?: any[], deletedDocIds?: string[]) => Promise<void>
-  deleteCustomer: (id: string) => Promise<void>
+  deleteCustomer: (id: string, isHardDelete?: boolean) => Promise<void>
   restoreCustomer: (id: string) => Promise<void>
   getCustomer: (id: string) => Customer | undefined
   refreshCustomers: () => Promise<void>
@@ -242,8 +242,9 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
       await fetchCustomers(page, limit, search, active, startDate, endDate)
     },
 
-    deleteCustomer: async (id) => {
-      await apiCall(`/customers/${id}`, { method: 'DELETE' })
+    deleteCustomer: async (id, isHardDelete = false) => {
+      const qs = isHardDelete ? '?hard=true' : ''
+      await apiCall(`/customers/${id}${qs}`, { method: 'DELETE' })
       const newCount = totalCount - 1
       const newTotalPages = Math.ceil(newCount / limit) || 1
       const targetPage = page > newTotalPages ? newTotalPages : page

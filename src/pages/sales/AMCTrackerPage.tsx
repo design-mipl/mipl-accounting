@@ -8,6 +8,8 @@ import { useSales } from '../../contexts/SalesContext'
 import { fmtINR } from '../../utils/currency'
 import { StatusBadge, amcStatusTone, piTone, tiTone, paymentTone } from './components/StatusBadge'
 import { AMCFormDrawer } from './components/AMCFormDrawer'
+import DeleteConfirmationModal from '../../components/common/DeleteConfirmationModal'
+import { useToast } from '../../contexts/ToastContext'
 
 const btnPrimary =
   'inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm shadow-indigo-100'
@@ -17,6 +19,7 @@ const btnSecondary =
 export default function AMCTrackerPage() {
   const { amcs, amcCycles, deleteAMC, fetchAMCsPaginated, fetchAMCDetails } = useSales()
   const { customers } = useCustomers()
+  const { showSuccess, showError } = useToast()
   
   // Search & Filters state
   const [searchInput, setSearchInput] = useState('')
@@ -36,6 +39,11 @@ export default function AMCTrackerPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [editAMC, setEditAMC] = useState<AMC | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+
+  // Delete modal state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [deletingAMCId, setDeletingAMCId] = useState<string | null>(null)
+  const [deletingAMCName, setDeletingAMCName] = useState<string>('')
 
   const SALES_CUSTOMERS = useMemo(() => {
     return customers.map(c => ({
@@ -113,6 +121,25 @@ export default function AMCTrackerPage() {
   const pageNumbers = []
   for (let i = 1; i <= meta.totalPages; i++) {
     pageNumbers.push(i)
+  }
+
+  const handleDeleteClick = (amc: AMC) => {
+    setDeletingAMCId(amc.id)
+    setDeletingAMCName(amc.name)
+    setDeleteModalOpen(true)
+  }
+
+  const handleDeleteConfirm = async (isHardDelete: boolean) => {
+    if (!deletingAMCId) return
+    try {
+      await deleteAMC(deletingAMCId, isHardDelete)
+      showSuccess(isHardDelete ? 'AMC permanently deleted.' : 'AMC soft deleted successfully.', 'AMC Deleted')
+    } catch (err: any) {
+      showError(err.message || 'Failed to delete AMC', 'Delete Failed')
+    } finally {
+      setDeleteModalOpen(false)
+      setDeletingAMCId(null)
+    }
   }
 
   const isFilteringActive = searchInput || fCustomer || fStatus || fFreq
@@ -215,7 +242,7 @@ export default function AMCTrackerPage() {
                               <button onClick={() => { setEditAMC(a); setFormOpen(true) }} title="Edit" className="p-1.5 rounded hover:bg-amber-50 text-gray-400 hover:text-amber-600 cursor-pointer">
                                 <Pencil size={13} />
                               </button>
-                              <button onClick={() => { if (confirm(`Delete AMC "${a.name}"?`)) deleteAMC(a.id) }} title="Delete" className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-600 cursor-pointer">
+                              <button onClick={() => handleDeleteClick(a)} title="Delete" className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-600 cursor-pointer">
                                 <Trash2 size={13} />
                               </button>
                             </>
@@ -311,6 +338,14 @@ export default function AMCTrackerPage() {
         open={formOpen}
         initial={editAMC}
         onClose={() => { setFormOpen(false); setEditAMC(null) }}
+      />
+      <DeleteConfirmationModal
+        isOpen={deleteModalOpen}
+        title="Delete AMC"
+        message="Choose how you want to delete this AMC contract. Soft delete preserves associated historical data. Hard delete is permanent."
+        itemName={deletingAMCName}
+        onClose={() => { setDeleteModalOpen(false); setDeletingAMCId(null); }}
+        onConfirm={handleDeleteConfirm}
       />
     </div>
   )

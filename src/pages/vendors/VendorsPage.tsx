@@ -12,6 +12,7 @@ import NewVendorDrawer from './components/NewVendorDrawer'
 import VendorDetailModal from './components/VendorDetailModal'
 import BulkUploadVendorDrawer from './components/BulkUploadVendorDrawer'
 import * as XLSX from 'xlsx'
+import DeleteConfirmationModal from '../../components/common/DeleteConfirmationModal'
 
 const btnPrimary =
   'inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm'
@@ -54,6 +55,9 @@ export default function VendorsPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [importDrawerOpen, setImportDrawerOpen] = useState(false)
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [deletingVendorId, setDeletingVendorId] = useState<string | null>(null)
+  const [deletingVendorName, setDeletingVendorName] = useState<string>('')
 
   // Filters UI State
   const [showFilters, setShowFilters] = useState(false)
@@ -117,14 +121,25 @@ export default function VendorsPage() {
     setDateRange('', '')
   }
 
-  function handleDelete(id: string) {
-    deleteVendor(id)
+  function handleDelete(id: string, name?: string) {
+    setDeletingVendorId(id)
+    setDeletingVendorName(name || id)
+    setDeleteModalOpen(true)
+  }
+
+  function handleDeleteConfirm(isHardDelete: boolean) {
+    if (!deletingVendorId) return
+    deleteVendor(deletingVendorId, isHardDelete)
       .then(() => {
-        showSuccess('Vendor deleted successfully')
+        showSuccess(isHardDelete ? 'Vendor permanently deleted' : 'Vendor soft deleted successfully')
       })
       .catch(err => {
         console.error(err)
         showError(err.message || 'Failed to delete vendor')
+      })
+      .finally(() => {
+        setDeleteModalOpen(false)
+        setDeletingVendorId(null)
       })
   }
 
@@ -564,6 +579,14 @@ export default function VendorsPage() {
       <NewVendorDrawer open={drawerOpen} onClose={closeDrawer} onSave={handleSaveVendor} initialVendor={editingVendor} saving={saving} error={error} />
       <VendorDetailModal vendor={viewingVendor} onClose={() => setViewingVendor(null)} />
       <BulkUploadVendorDrawer open={importDrawerOpen} onClose={() => setImportDrawerOpen(false)} />
+      <DeleteConfirmationModal
+        isOpen={deleteModalOpen}
+        title="Delete Vendor"
+        message="Choose how you want to delete this vendor. Soft delete hides the record but keeps data intact. Hard delete is permanent."
+        itemName={deletingVendorName}
+        onClose={() => { setDeleteModalOpen(false); setDeletingVendorId(null); }}
+        onConfirm={handleDeleteConfirm}
+      />
     </div>
   )
 }

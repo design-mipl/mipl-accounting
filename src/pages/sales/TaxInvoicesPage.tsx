@@ -7,6 +7,8 @@ import { useSales } from '../../contexts/SalesContext'
 import { fmtINR } from '../../utils/currency'
 import { StatusBadge, tiTone } from './components/StatusBadge'
 import { TIFormDrawer } from './components/TIFormDrawer'
+import DeleteConfirmationModal from '../../components/common/DeleteConfirmationModal'
+import { useToast } from '../../contexts/ToastContext'
 
 type DateFilterPreset = 'all' | 'today' | '7days' | '30days' | 'custom'
 
@@ -18,6 +20,7 @@ const btnSecondary =
 export default function TaxInvoicesPage() {
   const { tis, deleteTI, fetchTIsPaginated } = useSales()
   const { customers } = useCustomers()
+  const { showSuccess, showError } = useToast()
   const SALES_CUSTOMERS = useMemo(() => {
     return customers.map(c => ({ id: c.id, name: c.companyName }))
   }, [customers])
@@ -45,6 +48,11 @@ export default function TaxInvoicesPage() {
 
   const [formOpen, setFormOpen] = useState(false)
   const [editTI, setEditTI] = useState<TaxInvoice | null>(null)
+
+  // Delete modal state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [deletingTIId, setDeletingTIId] = useState<string | null>(null)
+  const [deletingTINumber, setDeletingTINumber] = useState<string>('')
 
   // Debounced search
   useEffect(() => {
@@ -135,6 +143,25 @@ export default function TaxInvoicesPage() {
   const pageNumbers: number[] = []
   for (let i = 1; i <= meta.totalPages; i++) {
     pageNumbers.push(i)
+  }
+
+  const handleDeleteClick = (ti: TaxInvoice) => {
+    setDeletingTIId(ti.id)
+    setDeletingTINumber(ti.tiNumber)
+    setDeleteModalOpen(true)
+  }
+
+  const handleDeleteConfirm = async (isHardDelete: boolean) => {
+    if (!deletingTIId) return
+    try {
+      await deleteTI(deletingTIId, isHardDelete)
+      showSuccess(isHardDelete ? 'Tax Invoice permanently deleted.' : 'Tax Invoice soft deleted successfully.', 'TI Deleted')
+    } catch (err: any) {
+      showError(err.message || 'Failed to delete tax invoice', 'Delete Failed')
+    } finally {
+      setDeleteModalOpen(false)
+      setDeletingTIId(null)
+    }
   }
 
   return (
@@ -301,7 +328,7 @@ export default function TaxInvoicesPage() {
                   <td className="py-2.5 px-3 text-right">
                     <div className="flex items-center justify-end gap-0.5">
                       <button onClick={() => { setEditTI(t); setFormOpen(true) }} title="Edit" className="p-1.5 rounded hover:bg-amber-50 text-gray-400 hover:text-amber-600 cursor-pointer"><Pencil size={13} /></button>
-                      <button onClick={() => { if (confirm(`Delete TI ${t.tiNumber}?`)) deleteTI(t.id) }} title="Delete" className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-600 cursor-pointer"><Trash2 size={13} /></button>
+                      <button onClick={() => handleDeleteClick(t)} title="Delete" className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-600 cursor-pointer"><Trash2 size={13} /></button>
                     </div>
                   </td>
                 </tr>
@@ -380,6 +407,14 @@ export default function TaxInvoicesPage() {
       </div>
 
       <TIFormDrawer open={formOpen} initial={editTI} onClose={() => { setFormOpen(false); setEditTI(null) }} />
+      <DeleteConfirmationModal
+        isOpen={deleteModalOpen}
+        title="Delete Tax Invoice"
+        message="Choose how you want to delete this tax invoice. Soft delete preserves associated historical data. Hard delete is permanent."
+        itemName={deletingTINumber}
+        onClose={() => { setDeleteModalOpen(false); setDeletingTIId(null); }}
+        onConfirm={handleDeleteConfirm}
+      />
     </div>
   )
 }

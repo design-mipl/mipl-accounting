@@ -12,6 +12,7 @@ import NewCustomerDrawer from './components/NewCustomerDrawer'
 import CustomerDetailModal from './components/CustomerDetailModal'
 import * as XLSX from 'xlsx'
 import BulkUploadCustomerDrawer from './components/BulkUploadCustomerDrawer'
+import DeleteConfirmationModal from '../../components/common/DeleteConfirmationModal'
 
 const btnPrimary =
   'inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm cursor-pointer'
@@ -52,6 +53,9 @@ export default function CustomersPage() {
   const [viewingCustomer, setViewingCustomer] = useState<Customer | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [deletingCustomerId, setDeletingCustomerId] = useState<string | null>(null)
+  const [deletingCustomerName, setDeletingCustomerName] = useState<string>('')
 
   const handleExportCustomers = async () => {
     try {
@@ -163,14 +167,25 @@ export default function CustomersPage() {
     setDateRange('', '')
   }
 
-  function handleDelete(id: string) {
-    deleteCustomer(id)
+  function handleDelete(id: string, name?: string) {
+    setDeletingCustomerId(id)
+    setDeletingCustomerName(name || id)
+    setDeleteModalOpen(true)
+  }
+
+  function handleDeleteConfirm(isHardDelete: boolean) {
+    if (!deletingCustomerId) return
+    deleteCustomer(deletingCustomerId, isHardDelete)
       .then(() => {
-        showSuccess('Customer deleted successfully')
+        showSuccess(isHardDelete ? 'Customer permanently deleted' : 'Customer soft deleted successfully')
       })
       .catch(err => {
         console.error(err)
         showError(err.message || 'Failed to delete customer')
+      })
+      .finally(() => {
+        setDeleteModalOpen(false)
+        setDeletingCustomerId(null)
       })
   }
 
@@ -523,6 +538,14 @@ export default function CustomersPage() {
       <NewCustomerDrawer open={drawerOpen} onClose={closeDrawer} onSave={handleSaveCustomer} initialCustomer={editingCustomer} saving={saving} error={error} />
       <CustomerDetailModal customer={viewingCustomer} onClose={() => setViewingCustomer(null)} />
       <BulkUploadCustomerDrawer open={bulkDrawerOpen} onClose={() => setBulkDrawerOpen(false)} />
+      <DeleteConfirmationModal
+        isOpen={deleteModalOpen}
+        title="Delete Customer"
+        message="Choose how you want to delete this customer. Soft delete hides the record but keeps data intact. Hard delete is permanent."
+        itemName={deletingCustomerName}
+        onClose={() => { setDeleteModalOpen(false); setDeletingCustomerId(null); }}
+        onConfirm={handleDeleteConfirm}
+      />
     </div>
   )
 }

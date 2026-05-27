@@ -9,6 +9,7 @@ import PaymentTable from './components/PaymentTable'
 import PaymentFormDrawer from './components/PaymentFormDrawer'
 import PaymentDetailModal from './components/PaymentDetailModal'
 import { useToast } from '../../contexts/ToastContext'
+import DeleteConfirmationModal from '../../components/common/DeleteConfirmationModal'
 
 function formatMonthLabel(ym: string) {
   const [y, m] = ym.split('-').map(Number)
@@ -41,6 +42,8 @@ export default function MonthlyPaymentRegister() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null)
   const [viewingPayment, setViewingPayment] = useState<Payment | null>(null)
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [deletingPaymentId, setDeletingPaymentId] = useState<string | null>(null)
 
   // Global mode: when search text OR date range is set, ignore month filter
   const isGlobalMode = !!(search.trim() || fromDate || toDate)
@@ -97,14 +100,21 @@ export default function MonthlyPaymentRegister() {
     setViewingPayment(payment)
   }
 
-  async function handleDelete(id: string) {
-    if (window.confirm('Are you sure you want to delete this payment entry?')) {
-      try {
-        await deletePayment(id)
-        showSuccess('Payment entry deleted successfully')
-      } catch (err: any) {
-        showError(err.message || 'Failed to delete payment')
-      }
+  function handleDelete(id: string) {
+    setDeletingPaymentId(id)
+    setDeleteModalOpen(true)
+  }
+
+  async function handleDeleteConfirm(isHardDelete: boolean) {
+    if (!deletingPaymentId) return
+    try {
+      await deletePayment(deletingPaymentId, isHardDelete)
+      showSuccess(isHardDelete ? 'Payment entry permanently deleted' : 'Payment entry soft deleted successfully')
+    } catch (err: any) {
+      showError(err.message || 'Failed to delete payment')
+    } finally {
+      setDeleteModalOpen(false)
+      setDeletingPaymentId(null)
     }
   }
 
@@ -330,6 +340,14 @@ export default function MonthlyPaymentRegister() {
         defaultMonth={selectedMonth}
       />
       <PaymentDetailModal payment={viewingPayment} onClose={() => setViewingPayment(null)} />
+      <DeleteConfirmationModal
+        isOpen={deleteModalOpen}
+        title="Delete Payment"
+        message="Choose how you want to delete this payment. Soft delete hides the record but keeps data intact. Hard delete is permanent."
+        itemName="this payment"
+        onClose={() => { setDeleteModalOpen(false); setDeletingPaymentId(null); }}
+        onConfirm={handleDeleteConfirm}
+      />
     </div>
   )
 }

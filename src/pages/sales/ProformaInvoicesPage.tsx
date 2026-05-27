@@ -8,6 +8,8 @@ import { fmtINR } from '../../utils/currency'
 import { StatusBadge, piTone } from './components/StatusBadge'
 import { PIFormDrawer } from './components/PIFormDrawer'
 import { TIFormDrawer } from './components/TIFormDrawer'
+import DeleteConfirmationModal from '../../components/common/DeleteConfirmationModal'
+import { useToast } from '../../contexts/ToastContext'
 
 type DateFilterPreset = 'all' | 'today' | '7days' | '30days' | 'custom'
 
@@ -27,6 +29,7 @@ function getStatusFromPayment(received: number, expectedReceipt: number): 'Pendi
 export default function ProformaInvoicesPage() {
   const { pis, deletePI, upsertPI, fetchPIsPaginated } = useSales()
   const { customers } = useCustomers()
+  const { showSuccess, showError } = useToast()
   const SALES_CUSTOMERS = useMemo(() => {
     return customers.map(c => ({ id: c.id, name: c.companyName }))
   }, [customers])
@@ -55,6 +58,11 @@ export default function ProformaInvoicesPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [editPI, setEditPI] = useState<ProformaInvoice | null>(null)
   const [tiPrefill, setTiPrefill] = useState<ProformaInvoice | null>(null)
+
+  // Delete modal state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [deletingPIId, setDeletingPIId] = useState<string | null>(null)
+  const [deletingPINumber, setDeletingPINumber] = useState<string>('')
 
   // Debounced search
   useEffect(() => {
@@ -156,6 +164,25 @@ export default function ProformaInvoicesPage() {
   const pageNumbers: number[] = []
   for (let i = 1; i <= meta.totalPages; i++) {
     pageNumbers.push(i)
+  }
+
+  const handleDeleteClick = (pi: ProformaInvoice) => {
+    setDeletingPIId(pi.id)
+    setDeletingPINumber(pi.piNumber)
+    setDeleteModalOpen(true)
+  }
+
+  const handleDeleteConfirm = async (isHardDelete: boolean) => {
+    if (!deletingPIId) return
+    try {
+      await deletePI(deletingPIId, isHardDelete)
+      showSuccess(isHardDelete ? 'Proforma Invoice permanently deleted.' : 'Proforma Invoice soft deleted successfully.', 'PI Deleted')
+    } catch (err: any) {
+      showError(err.message || 'Failed to delete proforma invoice', 'Delete Failed')
+    } finally {
+      setDeleteModalOpen(false)
+      setDeletingPIId(null)
+    }
   }
 
   return (
@@ -335,7 +362,7 @@ export default function ProformaInvoicesPage() {
                       <div className="flex items-center justify-end gap-0.5">
                         <button onClick={() => { setEditPI(p); setFormOpen(true) }} title="Edit" className="p-1.5 rounded hover:bg-amber-50 text-gray-400 hover:text-amber-600 cursor-pointer"><Pencil size={13} /></button>
                         <button onClick={() => setTiPrefill(p)} title="Create Tax Invoice" className="p-1.5 rounded hover:bg-indigo-50 text-gray-400 hover:text-indigo-600 cursor-pointer"><ReceiptText size={13} /></button>
-                        <button onClick={() => { if (confirm(`Delete PI ${p.piNumber}?`)) deletePI(p.id) }} title="Delete" className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-600 cursor-pointer"><Trash2 size={13} /></button>
+                        <button onClick={() => handleDeleteClick(p)} title="Delete" className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-600 cursor-pointer"><Trash2 size={13} /></button>
                       </div>
                     </td>
                   </tr>
@@ -418,6 +445,14 @@ export default function ProformaInvoicesPage() {
         open={!!tiPrefill}
         onClose={() => setTiPrefill(null)}
         fromPI={tiPrefill || undefined}
+      />
+      <DeleteConfirmationModal
+        isOpen={deleteModalOpen}
+        title="Delete Proforma Invoice"
+        message="Choose how you want to delete this proforma invoice. Soft delete preserves associated historical data. Hard delete is permanent."
+        itemName={deletingPINumber}
+        onClose={() => { setDeleteModalOpen(false); setDeletingPIId(null); }}
+        onConfirm={handleDeleteConfirm}
       />
       <span className="hidden"><Eye size={1} /><FileText size={1} /></span>
     </div>

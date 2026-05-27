@@ -22,6 +22,7 @@ import ResetPasswordModal from './components/ResetPasswordModal';
 import RolesPermissionsPage from './RolesPermissionsPage';
 import type { User } from '../../types/user';
 import { useToast } from '../../contexts/ToastContext';
+import DeleteConfirmationModal from '../../components/common/DeleteConfirmationModal';
 
 export default function UsersListPage() {
   const {
@@ -54,6 +55,8 @@ export default function UsersListPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [resettingUser, setResettingUser] = useState<User | null>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deletingUser, setDeletingUser] = useState<User | null>(null);
 
   // Permissions checks
   const canCreateUser = usePermission('userManagement.create');
@@ -84,20 +87,30 @@ export default function UsersListPage() {
     setDrawerOpen(true);
   };
 
-  const handleDeleteClick = async (user: User) => {
+  const handleDeleteClick = (user: User) => {
     if (user.id === currentUser?.id) {
       showWarning('You cannot delete your own account.', 'Action Blocked');
       return;
     }
-    if (
-      window.confirm(`Are you sure you want to delete user ${user.firstName} ${user.lastName}? This action soft-deletes the account.`)
-    ) {
-      try {
-        await deleteUser(user.id);
-        showSuccess(`User "${user.firstName} ${user.lastName}" deleted successfully.`, 'User Deleted');
-      } catch (err: any) {
-        showError(err.message || 'Failed to delete user.', 'Delete Failed');
-      }
+    setDeletingUser(user);
+    setDeleteModalOpen(true);
+  };
+
+  const handleDeleteConfirm = async (isHardDelete: boolean) => {
+    if (!deletingUser) return;
+    try {
+      await deleteUser(deletingUser.id, isHardDelete);
+      showSuccess(
+        isHardDelete
+          ? `User "${deletingUser.firstName} ${deletingUser.lastName}" permanently deleted.`
+          : `User "${deletingUser.firstName} ${deletingUser.lastName}" soft deleted successfully.`,
+        'User Deleted'
+      );
+    } catch (err: any) {
+      showError(err.message || 'Failed to delete user.', 'Delete Failed');
+    } finally {
+      setDeleteModalOpen(false);
+      setDeletingUser(null);
     }
   };
 
@@ -414,6 +427,15 @@ export default function UsersListPage() {
           onClose={() => setResettingUser(null)}
         />
       )}
+
+      <DeleteConfirmationModal
+        isOpen={deleteModalOpen}
+        title="Delete User"
+        message="Choose how you want to delete this user. Soft delete hides the account but keeps all audit data. Hard delete is permanent."
+        itemName={deletingUser ? `${deletingUser.firstName} ${deletingUser.lastName}` : ''}
+        onClose={() => { setDeleteModalOpen(false); setDeletingUser(null); }}
+        onConfirm={handleDeleteConfirm}
+      />
     </div>
   );
 }

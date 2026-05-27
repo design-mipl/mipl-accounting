@@ -4,7 +4,7 @@ import InitialsAvatar from '../../customers/components/InitialsAvatar'
 
 type Props = {
   employees: Employee[]
-  onDelete: (id: string) => void
+  onDelete: (id: string, name?: string) => void
   onEdit: (employee: Employee) => void
 }
 
@@ -72,11 +72,7 @@ export default function EmployeeTable({ employees, onDelete, onEdit }: Props) {
                     <Pencil size={16} />
                   </button>
                   <button
-                    onClick={() => {
-                      if (confirm(`Are you sure you want to delete employee "${employee.name}"?`)) {
-                        onDelete(employee.id)
-                      }
-                    }}
+                    onClick={() => onDelete(employee.id, employee.name)}
                     title="Delete"
                     className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors"
                   >

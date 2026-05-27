@@ -63,12 +63,12 @@ type UserManagementState = {
   createUser: (data: any) => Promise<void>;
   updateUser: (id: string, data: any) => Promise<void>;
   updateUserStatus: (id: string, status: UserStatus) => Promise<void>;
-  deleteUser: (id: string) => Promise<void>;
+  deleteUser: (id: string, isHardDelete?: boolean) => Promise<void>;
   resetPassword: (id: string, newPass: string) => Promise<void>;
   changePassword: (oldPass: string, newPass: string) => Promise<void>;
   createRole: (data: { roleName: string; description?: string }) => Promise<void>;
   updateRole: (id: string, data: { roleName?: string; description?: string }) => Promise<void>;
-  deleteRole: (id: string) => Promise<void>;
+  deleteRole: (id: string, isHardDelete?: boolean) => Promise<void>;
   updateRolePermissions: (id: string, permissions: Partial<RolePermission>[]) => Promise<void>;
 };
 
@@ -219,8 +219,9 @@ export function UserManagementProvider({ children }: { children: ReactNode }) {
       await fetchUsers();
     },
 
-    deleteUser: async (id) => {
-      await apiCall(`/users/${id}`, {
+    deleteUser: async (id, isHardDelete = false) => {
+      const qs = isHardDelete ? '?hard=true' : '';
+      await apiCall(`/users/${id}${qs}`, {
         method: 'DELETE',
       });
       const newTotalPages = Math.ceil((totalCount - 1) / filtersRef.current.limit) || 1;
@@ -262,8 +263,9 @@ export function UserManagementProvider({ children }: { children: ReactNode }) {
       await fetchRoles();
     },
 
-    deleteRole: async (id) => {
-      await apiCall(`/roles/${id}`, {
+    deleteRole: async (id, isHardDelete = false) => {
+      const qs = isHardDelete ? '?hard=true' : '';
+      await apiCall(`/roles/${id}${qs}`, {
         method: 'DELETE',
       });
       await fetchRoles();

@@ -61,7 +61,7 @@ type VendorState = {
   setActive: (active: string) => void
   addVendor: (vendor: any, logoFile?: File, newDocs?: any[]) => Promise<void>
   updateVendor: (id: string, updates: Partial<Vendor>, logoFile?: File, newDocs?: any[], deletedDocIds?: string[]) => Promise<void>
-  deleteVendor: (id: string) => Promise<void>
+  deleteVendor: (id: string, isHardDelete?: boolean) => Promise<void>
   restoreVendor: (id: string) => Promise<void>
   getVendor: (id: string) => Vendor | undefined
   refreshVendors: () => Promise<void>
@@ -382,8 +382,10 @@ export function VendorProvider({ children }: { children: ReactNode }) {
       await fetchVendors(page, limit, search, active, vendorType, startDate, endDate)
     },
 
-    deleteVendor: async (id) => {
-      await apiCall(`/vendors/${id}`, { method: 'DELETE' })
+    deleteVendor: async (id, isHardDelete = false) => {
+      const qs = isHardDelete ? '?hard=true' : '';
+      await apiCall(`/vendors/${id}${qs}`, {
+        method: 'DELETE', })
       const newCount = totalCount - 1
       const newTotalPages = Math.ceil(newCount / limit) || 1
       const targetPage = page > newTotalPages ? newTotalPages : page

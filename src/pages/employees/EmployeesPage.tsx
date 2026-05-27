@@ -6,6 +6,7 @@ import EmployeeTable from './components/EmployeeTable'
 import NewEmployeeDrawer from './components/NewEmployeeDrawer'
 import clsx from 'clsx'
 import { useToast } from '../../contexts/ToastContext'
+import DeleteConfirmationModal from '../../components/common/DeleteConfirmationModal'
 
 const btnPrimary =
   'inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm'
@@ -42,6 +43,9 @@ export default function EmployeesPage() {
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [deletingEmployeeId, setDeletingEmployeeId] = useState<string | null>(null)
+  const [deletingEmployeeName, setDeletingEmployeeName] = useState<string>('')
 
   // Filters UI state
   const [showFilters, setShowFilters] = useState(false)
@@ -130,16 +134,25 @@ export default function EmployeesPage() {
     setDrawerOpen(true)
   }
 
-  function handleDelete(id: string) {
-    const employee = employees.find(e => e.id === id)
-    const empName = employee ? employee.name : ''
-    deleteEmployee(id)
+  function handleDelete(id: string, name?: string) {
+    setDeletingEmployeeId(id)
+    setDeletingEmployeeName(name || id)
+    setDeleteModalOpen(true)
+  }
+
+  function handleDeleteConfirm(isHardDelete: boolean) {
+    if (!deletingEmployeeId) return
+    deleteEmployee(deletingEmployeeId, isHardDelete)
       .then(() => {
-        showSuccess(`Employee "${empName}" deleted successfully.`, 'Employee Deleted')
+        showSuccess(isHardDelete ? 'Employee permanently deleted' : 'Employee soft deleted successfully')
       })
       .catch(err => {
         console.error(err)
-        showError(err.message || 'Failed to delete employee', 'Failed to Delete Employee')
+        showError(err.message || 'Failed to delete employee')
+      })
+      .finally(() => {
+        setDeleteModalOpen(false)
+        setDeletingEmployeeId(null)
       })
   }
 
@@ -372,6 +385,14 @@ export default function EmployeesPage() {
         initialEmployee={editingEmployee}
         saving={saving}
         error={error}
+      />
+      <DeleteConfirmationModal
+        isOpen={deleteModalOpen}
+        title="Delete Employee"
+        message="Choose how you want to delete this employee. Soft delete hides the record but keeps data intact. Hard delete is permanent."
+        itemName={deletingEmployeeName}
+        onClose={() => { setDeleteModalOpen(false); setDeletingEmployeeId(null); }}
+        onConfirm={handleDeleteConfirm}
       />
     </div>
   )

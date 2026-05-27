@@ -46,7 +46,7 @@ type PaymentState = {
   addPayment: (payment: Omit<Payment, 'id' | 'createdAt' | 'month' | 'balanceAmount' | 'gstAmount' | 'deductionAmount' | 'netPayable'>) => Promise<void>
   bulkAddPayments: (paymentsList: Partial<Payment>[]) => Promise<void>
   updatePayment: (id: string, updates: Partial<Payment>) => Promise<void>
-  deletePayment: (id: string) => Promise<void>
+  deletePayment: (id: string, isHardDelete?: boolean) => Promise<void>
   refreshPayments: () => Promise<void>
 }
 
@@ -241,8 +241,9 @@ export function PaymentProvider({ children }: { children: ReactNode }) {
       })
       await fetchPayments()
     },
-    deletePayment: async (id) => {
-      await apiCall(`/payments/${id}`, {
+    deletePayment: async (id, isHardDelete = false) => {
+      const qs = isHardDelete ? '?hard=true' : ''
+      await apiCall(`/payments/${id}${qs}`, {
         method: 'DELETE'
       })
       await fetchPayments()
